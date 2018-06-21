@@ -114,8 +114,6 @@ func main() {
 	}
 	dbURI = dbparsed.String()
 
-	log.Printf("database url %s\n", dbURI)
-
 	db, err := sql.Open("postgres", dbURI)
 	if err != nil {
 		log.Fatal(err)
