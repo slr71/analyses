@@ -4,12 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 	"reflect"
+	"strconv"
 	"strings"
 
 	_ "expvar"
@@ -63,6 +65,8 @@ type Job struct {
 	AppID          string    `json:"app_id"`
 	UserID         string    `json:"user_id"`
 	Status         string    `json:"status"`
+	Description    string    `json:"description"`
+	Name           string    `json:"name"`
 	PlannedEndDate NullInt64 `json:"planned_end_date,omitempty"`
 }
 
@@ -76,7 +80,9 @@ SELECT id,
        app_id,
        user_id,
        status,
-       planned_end_date
+       planned_end_date,
+       job_description as description,
+       job_name as name
   FROM jobs
  WHERE status = $1
    AND planned_end_date < NOW()`
@@ -114,7 +120,9 @@ SELECT id,
        app_id,
        user_id,
        status,
-       planned_end_date
+       planned_end_date,
+       job_description as description,
+       job_name as name
   FROM jobs
  WHERE id = $1`
 
@@ -132,11 +140,52 @@ func getJobByID(ctx context.Context, db *sql.DB, id string) (*Job, error) {
 		&j.UserID,
 		&j.Status,
 		&j.PlannedEndDate,
+		&j.Description,
+		&j.Name,
 	); err != nil {
 		return nil, err
 	}
 
 	return &j, err
+}
+
+const updateJobTemplate = `
+UPDATE ONLY jobs
+  SET %s
+WHERE id = $1
+RETURNING id, app_id, user_id, status, planned_end_date, job_description, job_name`
+
+func updateJob(ctx context.Context, db *sql.DB, id string, patch map[string]string) (*Job, error) {
+	var err error
+
+	setstring := "%s = '%s'"
+	sets := []string{}
+
+	for k, v := range patch {
+		sets = append(sets, fmt.Sprintf(setstring, k, v))
+	}
+
+	if len(sets) == 0 {
+		return nil, errors.New("nothing in patch")
+	}
+
+	fullupdate := fmt.Sprintf(updateJobTemplate, strings.Join(sets, ", "))
+
+	j := &Job{}
+	row := db.QueryRowContext(ctx, fullupdate, id)
+	if err = row.Scan(
+		&j.ID,
+		&j.AppID,
+		&j.UserID,
+		&j.Status,
+		&j.PlannedEndDate,
+		&j.Description,
+		&j.Name,
+	); err != nil {
+		return nil, err
+	}
+
+	return j, nil
 }
 
 func main() {
@@ -223,7 +272,9 @@ func main() {
 		}
 	}).Methods("GET")
 
-	router.HandleFunc("/id/{id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}", func(w http.ResponseWriter, r *http.Request) {
+	idPath := "/id/{id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}"
+
+	router.HandleFunc(idPath, func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		id := vars["id"]
 
@@ -239,6 +290,53 @@ func main() {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	}).Methods("GET")
+
+	router.HandleFunc(idPath, func(w http.ResponseWriter, r *http.Request) {
+		var (
+			ok  bool
+			err error
+		)
+
+		vars := mux.Vars(r)
+		id := vars["id"]
+		defer r.Body.Close()
+
+		jobpatch := make(map[string]interface{})
+
+		if err = json.NewDecoder(r.Body).Decode(&jobpatch); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		dbpatch := map[string]string{}
+
+		if _, ok = jobpatch["status"]; ok {
+			dbpatch["status"] = jobpatch["status"].(string)
+		}
+
+		if _, ok = jobpatch["planned_end_date"]; ok {
+			dbpatch["planned_end_date"] = strconv.FormatInt(jobpatch["planned_end_date"].(int64), 10)
+		}
+
+		if _, ok = jobpatch["description"]; ok {
+			dbpatch["job_description"] = jobpatch["description"].(string)
+		}
+
+		if _, ok = jobpatch["name"]; ok {
+			dbpatch["job_name"] = jobpatch["name"].(string)
+		}
+
+		job, err := updateJob(ctx, db, id, dbpatch)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if err = json.NewEncoder(w).Encode(job); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+
+	}).Methods("PATCH")
 
 	router.Handle("/debug/vars", http.DefaultServeMux)
 
