@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 
 	_ "expvar"
@@ -19,19 +20,55 @@ import (
 	"github.com/spf13/viper"
 )
 
+// The following Null* type code was taken from or informed by the blog at
+// https://medium.com/aubergine-solutions/how-i-handled-null-possible-values-from-database-rows-in-golang-521fb0ee267.
+
+// NullInt64 is an alias of the sql.NullInt64. Having an alias allows us to
+// extend the types, which we can't do without the alias because sql.NullInt64
+// is defined in another package.
+type NullInt64 sql.NullInt64
+
+// Scan implements the Scanner interface for our NullInt64 alias.
+func (i *NullInt64) Scan(value interface{}) error {
+	var (
+		valid bool
+		n     sql.NullInt64
+		err   error
+	)
+
+	if err = n.Scan(value); err != nil {
+		return err
+	}
+
+	if reflect.TypeOf(value) != nil {
+		valid = true
+	}
+
+	*i = NullInt64{i.Int64, valid}
+	return nil
+}
+
+// MarshalJSON implements the json.Marshaler interface for our NullInt64 alias.
+func (i *NullInt64) MarshalJSON() ([]byte, error) {
+	if !i.Valid {
+		return []byte("null"), nil
+	}
+	return json.Marshal(i.Int64)
+}
+
 // Job is an entry from the jobs table in the database. It contains a minimal
 // set of fields.
 type Job struct {
-	ID             string
-	AppID          string
-	UserID         string
-	Status         string
-	PlannedEndDate int64
+	ID             string    `json:"id"`
+	AppID          string    `json:"app_id"`
+	UserID         string    `json:"user_id"`
+	Status         string    `json:"status"`
+	PlannedEndDate NullInt64 `json:"planned_end_date,omitempty"`
 }
 
 // JobList is a list of Jobs. Duh.
 type JobList struct {
-	Jobs []Job
+	Jobs []Job `json:"jobs"`
 }
 
 const listJobsQuery = `
@@ -72,6 +109,36 @@ func listJobs(ctx context.Context, db *sql.DB, status string) (*JobList, error) 
 	return jl, nil
 }
 
+const getJobByIDQuery = `
+SELECT id,
+       app_id,
+       user_id,
+       status,
+       planned_end_date
+  FROM jobs
+ WHERE id = $1`
+
+func getJobByID(ctx context.Context, db *sql.DB, id string) (*Job, error) {
+	var (
+		j   Job
+		err error
+	)
+
+	row := db.QueryRowContext(ctx, getJobByIDQuery, id)
+
+	if err = row.Scan(
+		&j.ID,
+		&j.AppID,
+		&j.UserID,
+		&j.Status,
+		&j.PlannedEndDate,
+	); err != nil {
+		return nil, err
+	}
+
+	return &j, err
+}
+
 func main() {
 	var (
 		err        error
@@ -81,6 +148,7 @@ func main() {
 	)
 
 	ctx := context.Background()
+
 	flag.Parse()
 
 	useSSL := false
@@ -125,13 +193,14 @@ func main() {
 
 	router := mux.NewRouter()
 
-	router.HandleFunc("/analyses/expired/{status}", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/expired/{status}", func(w http.ResponseWriter, r *http.Request) {
 		validStatuses := map[string]bool{
 			"Completed": true,
 			"Failed":    true,
 			"Submitted": true,
 			"Queued":    true,
 			"Running":   true,
+			"Canceled":  true,
 		}
 
 		vars := mux.Vars(r)
@@ -149,7 +218,26 @@ func main() {
 
 		w.Header().Set(http.CanonicalHeaderKey("content-type"), "application/json")
 
-		json.NewEncoder(w).Encode(list)
+		if err = json.NewEncoder(w).Encode(list); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}).Methods("GET")
+
+	router.HandleFunc("/id/{id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+
+		job, err := getJobByID(ctx, db, id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set(http.CanonicalHeaderKey("content-type"), "application/json")
+
+		if err = json.NewEncoder(w).Encode(job); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}).Methods("GET")
 
 	router.Handle("/debug/vars", http.DefaultServeMux)
