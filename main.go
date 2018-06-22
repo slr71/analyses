@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -16,7 +17,7 @@ import (
 
 	_ "expvar"
 
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 
 	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
@@ -24,21 +25,23 @@ import (
 
 // The following Null* type code was taken from or informed by the blog at
 // https://medium.com/aubergine-solutions/how-i-handled-null-possible-values-from-database-rows-in-golang-521fb0ee267.
+// and
+// https://stackoverflow.com/questions/24564619/nullable-time-time-in-golang
 
-// NullInt64 is an alias of the sql.NullInt64. Having an alias allows us to
-// extend the types, which we can't do without the alias because sql.NullInt64
-// is defined in another package.
-type NullInt64 sql.NullInt64
+// NullTime is an alias of pq.NullTime, which allows us to extend the type by
+// implementing custom JSON marshalling logic.
+type NullTime pq.NullTime
 
-// Scan implements the Scanner interface for our NullInt64 alias.
-func (i *NullInt64) Scan(value interface{}) error {
+// Scan implements the Scanner interface for the NullTime alias. Basically just
+// delegates to the Scan() implementation for pq.NullTime.
+func (t *NullTime) Scan(value interface{}) error {
 	var (
 		valid bool
-		n     sql.NullInt64
+		nt    pq.NullTime
 		err   error
 	)
 
-	if err = n.Scan(value); err != nil {
+	if err = nt.Scan(value); err != nil {
 		return err
 	}
 
@@ -46,29 +49,42 @@ func (i *NullInt64) Scan(value interface{}) error {
 		valid = true
 	}
 
-	*i = NullInt64{i.Int64, valid}
+	*t = NullTime{nt.Time, valid}
 	return nil
 }
 
-// MarshalJSON implements the json.Marshaler interface for our NullInt64 alias.
-func (i *NullInt64) MarshalJSON() ([]byte, error) {
-	if !i.Valid {
+// Value implements the Valuer interface for the NullTime alias. Needed for the
+// pq driver.
+func (t NullTime) Value() (driver.Value, error) {
+	if !t.Valid {
+		return nil, nil
+	}
+	return t.Time, nil
+}
+
+// MarshalJSON implements the json.Marshaler interface for our NullTime alias.
+// We're using this to convert timestamps to int64s containing the milliseconds
+// since the epoch.
+func (t *NullTime) MarshalJSON() ([]byte, error) {
+	if !t.Valid {
 		return []byte("null"), nil
 	}
-	return json.Marshal(i.Int64)
+	return []byte(strconv.FormatInt(t.Time.UnixNano()/1000000, 10)), nil
 }
 
 // Job is an entry from the jobs table in the database. It contains a minimal
 // set of fields.
 type Job struct {
-	ID             string    `json:"id"`
-	AppID          string    `json:"app_id"`
-	UserID         string    `json:"user_id"`
-	Username       string    `json:"username"`
-	Status         string    `json:"status"`
-	Description    string    `json:"description"`
-	Name           string    `json:"name"`
-	PlannedEndDate NullInt64 `json:"planned_end_date,omitempty"`
+	ID             string   `json:"id"`
+	AppID          string   `json:"app_id"`
+	UserID         string   `json:"user_id"`
+	Username       string   `json:"username"`
+	Status         string   `json:"status"`
+	Description    string   `json:"description"`
+	Name           string   `json:"name"`
+	ResultFolder   string   `json:"result_folder"`
+	StartDate      NullTime `json:"start_date"`
+	PlannedEndDate NullTime `json:"planned_end_date,omitempty"`
 }
 
 // JobList is a list of Jobs. Duh.
@@ -82,13 +98,15 @@ SELECT j.id,
        j.user_id,
        u.username,
        j.status,
-       j.planned_end_date,
        j.job_description as description,
-       j.job_name as name
+       j.job_name as name,
+       j.result_folder_path as result_folder,
+       j.start_date,
+       j.planned_end_date
   FROM jobs j
   JOIN users u
     ON j.user_id = u.id
- WHERE j.status = 'Running'
+ WHERE j.status = $1
    AND j.planned_end_date < NOW()`
 
 func listJobs(ctx context.Context, db *sql.DB, status string) (*JobList, error) {
@@ -110,6 +128,10 @@ func listJobs(ctx context.Context, db *sql.DB, status string) (*JobList, error) 
 			&j.UserID,
 			&j.Username,
 			&j.Status,
+			&j.Description,
+			&j.Name,
+			&j.ResultFolder,
+			&j.StartDate,
 			&j.PlannedEndDate,
 		)
 		if err != nil {
@@ -126,9 +148,11 @@ SELECT j.id,
        j.user_id,
        u.username,
        j.status,
-       j.planned_end_date,
        j.job_description as description,
-       j.job_name as name
+       j.job_name as name,
+       j.result_folder_path as result_folder,
+       j.start_date,
+       j.planned_end_date
   FROM jobs j
   JOIN users u
     ON j.user_id = u.id
@@ -148,9 +172,11 @@ func getJobByID(ctx context.Context, db *sql.DB, id string) (*Job, error) {
 		&j.UserID,
 		&j.Username,
 		&j.Status,
-		&j.PlannedEndDate,
 		&j.Description,
 		&j.Name,
+		&j.ResultFolder,
+		&j.StartDate,
+		&j.PlannedEndDate,
 	); err != nil {
 		return nil, err
 	}
