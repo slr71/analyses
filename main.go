@@ -64,6 +64,7 @@ type Job struct {
 	ID             string    `json:"id"`
 	AppID          string    `json:"app_id"`
 	UserID         string    `json:"user_id"`
+	Username       string    `json:"username"`
 	Status         string    `json:"status"`
 	Description    string    `json:"description"`
 	Name           string    `json:"name"`
@@ -76,16 +77,19 @@ type JobList struct {
 }
 
 const listJobsQuery = `
-SELECT id,
-       app_id,
-       user_id,
-       status,
-       planned_end_date,
-       job_description as description,
-       job_name as name
-  FROM jobs
- WHERE status = $1
-   AND planned_end_date < NOW()`
+SELECT j.id,
+       j.app_id,
+       j.user_id,
+       u.username,
+       j.status,
+       j.planned_end_date,
+       j.job_description as description,
+       j.job_name as name
+  FROM jobs j
+  JOIN users u
+    ON j.user_id = u.id
+ WHERE j.status = 'Running'
+   AND j.planned_end_date < NOW()`
 
 func listJobs(ctx context.Context, db *sql.DB, status string) (*JobList, error) {
 	rows, err := db.QueryContext(ctx, listJobsQuery, status)
@@ -104,6 +108,7 @@ func listJobs(ctx context.Context, db *sql.DB, status string) (*JobList, error) 
 			&j.ID,
 			&j.AppID,
 			&j.UserID,
+			&j.Username,
 			&j.Status,
 			&j.PlannedEndDate,
 		)
@@ -116,15 +121,18 @@ func listJobs(ctx context.Context, db *sql.DB, status string) (*JobList, error) 
 }
 
 const getJobByIDQuery = `
-SELECT id,
-       app_id,
-       user_id,
-       status,
-       planned_end_date,
-       job_description as description,
-       job_name as name
-  FROM jobs
- WHERE id = $1`
+SELECT j.id,
+       j.app_id,
+       j.user_id,
+       u.username,
+       j.status,
+       j.planned_end_date,
+       j.job_description as description,
+       j.job_name as name
+  FROM jobs j
+  JOIN users u
+    ON j.user_id = u.id
+ WHERE j.id = $1`
 
 func getJobByID(ctx context.Context, db *sql.DB, id string) (*Job, error) {
 	var (
@@ -138,6 +146,7 @@ func getJobByID(ctx context.Context, db *sql.DB, id string) (*Job, error) {
 		&j.ID,
 		&j.AppID,
 		&j.UserID,
+		&j.Username,
 		&j.Status,
 		&j.PlannedEndDate,
 		&j.Description,
@@ -152,8 +161,7 @@ func getJobByID(ctx context.Context, db *sql.DB, id string) (*Job, error) {
 const updateJobTemplate = `
 UPDATE ONLY jobs
   SET %s
-WHERE id = $1
-RETURNING id, app_id, user_id, status, planned_end_date, job_description, job_name`
+WHERE id = $1`
 
 func updateJob(ctx context.Context, db *sql.DB, id string, patch map[string]string) (*Job, error) {
 	var err error
@@ -171,17 +179,12 @@ func updateJob(ctx context.Context, db *sql.DB, id string, patch map[string]stri
 
 	fullupdate := fmt.Sprintf(updateJobTemplate, strings.Join(sets, ", "))
 
-	j := &Job{}
-	row := db.QueryRowContext(ctx, fullupdate, id)
-	if err = row.Scan(
-		&j.ID,
-		&j.AppID,
-		&j.UserID,
-		&j.Status,
-		&j.PlannedEndDate,
-		&j.Description,
-		&j.Name,
-	); err != nil {
+	if _, err = db.ExecContext(ctx, fullupdate, id); err != nil {
+		return nil, err
+	}
+
+	j, err := getJobByID(ctx, db, id)
+	if err != nil {
 		return nil, err
 	}
 
