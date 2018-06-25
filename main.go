@@ -107,10 +107,28 @@ SELECT j.id,
   JOIN users u
     ON j.user_id = u.id
  WHERE j.status = $1
-   AND j.planned_end_date < NOW()`
+   AND j.planned_end_date <= NOW()`
 
-func listJobs(ctx context.Context, db *sql.DB, status string) (*JobList, error) {
-	rows, err := db.QueryContext(ctx, listJobsQuery, status)
+const jobsToKillInFutureQuery = `
+SELECT j.id,
+       j.app_id,
+       j.user_id,
+       u.username,
+       j.status,
+       j.job_description as description,
+       j.job_name as name,
+       j.result_folder_path as result_folder,
+       j.start_date,
+       j.planned_end_date
+  FROM jobs j
+  JOIN users u
+    ON j.user_id = u.id
+ WHERE j.status = $1
+   AND NOW() < j.planned_end_date
+	 AND j.planned_end_date <= NOW() + interval '%d minutes'`
+
+func getJobList(ctx context.Context, db *sql.DB, query, status string) (*JobList, error) {
+	rows, err := db.QueryContext(ctx, query, status)
 	if err != nil {
 		return nil, err
 	}
@@ -140,6 +158,14 @@ func listJobs(ctx context.Context, db *sql.DB, status string) (*JobList, error) 
 		jl.Jobs = append(jl.Jobs, j)
 	}
 	return jl, nil
+}
+
+func listJobs(ctx context.Context, db *sql.DB, status string) (*JobList, error) {
+	return getJobList(ctx, db, listJobsQuery, status)
+}
+
+func listJobsToKillInFuture(ctx context.Context, db *sql.DB, status string, interval int64) (*JobList, error) {
+	return getJobList(ctx, db, fmt.Sprintf(jobsToKillInFutureQuery, interval), status)
 }
 
 const getJobByIDQuery = `
@@ -289,6 +315,42 @@ func main() {
 		}
 
 		list, err := listJobs(ctx, db, status)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set(http.CanonicalHeaderKey("content-type"), "application/json")
+
+		if err = json.NewEncoder(w).Encode(list); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}).Methods("GET")
+
+	router.HandleFunc("/expires-in/{minutes:[0-9]+}/{status}", func(w http.ResponseWriter, r *http.Request) {
+		validStatuses := map[string]bool{
+			"Completed": true,
+			"Failed":    true,
+			"Submitted": true,
+			"Queued":    true,
+			"Running":   true,
+			"Canceled":  true,
+		}
+
+		vars := mux.Vars(r)
+		status := strings.Title(strings.ToLower(vars["status"]))
+		if _, ok := validStatuses[status]; !ok {
+			http.Error(w, fmt.Sprintf("unknown status %s", status), http.StatusBadRequest)
+			return
+		}
+
+		minutes, err := strconv.ParseInt(vars["minutes"], 10, 64)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("can't parse %s as an integer", vars["minutes"]), http.StatusBadRequest)
+			return
+		}
+
+		list, err := listJobsToKillInFuture(ctx, db, status, minutes)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
