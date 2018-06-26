@@ -243,6 +243,159 @@ func updateJob(ctx context.Context, db *sql.DB, id string, patch map[string]stri
 	return j, nil
 }
 
+// AnalysesApp contains the application logic.
+type AnalysesApp struct {
+	db *sql.DB
+}
+
+// ExpiredByStatus returns a http.Handler that will respond to requests
+// for a list of jobs with the given status that have passed their expiration
+// date.
+func (a *AnalysesApp) ExpiredByStatus(ctx context.Context) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		validStatuses := map[string]bool{
+			"Completed": true,
+			"Failed":    true,
+			"Submitted": true,
+			"Queued":    true,
+			"Running":   true,
+			"Canceled":  true,
+		}
+
+		vars := mux.Vars(r)
+		status := strings.Title(strings.ToLower(vars["status"]))
+		if _, ok := validStatuses[status]; !ok {
+			http.Error(w, fmt.Sprintf("unknown status %s", status), http.StatusBadRequest)
+			return
+		}
+
+		list, err := listJobs(ctx, a.db, status)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set(http.CanonicalHeaderKey("content-type"), "application/json")
+
+		if err = json.NewEncoder(w).Encode(list); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
+}
+
+// ExpiresInByStatus returns an http.Handler that handles requests for lists of
+// analyses with the provided status that will expire in the provided number of
+// minutes.
+func (a *AnalysesApp) ExpiresInByStatus(ctx context.Context) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		validStatuses := map[string]bool{
+			"Completed": true,
+			"Failed":    true,
+			"Submitted": true,
+			"Queued":    true,
+			"Running":   true,
+			"Canceled":  true,
+		}
+
+		vars := mux.Vars(r)
+		status := strings.Title(strings.ToLower(vars["status"]))
+		if _, ok := validStatuses[status]; !ok {
+			http.Error(w, fmt.Sprintf("unknown status %s", status), http.StatusBadRequest)
+			return
+		}
+
+		minutes, err := strconv.ParseInt(vars["minutes"], 10, 64)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("can't parse %s as an integer", vars["minutes"]), http.StatusBadRequest)
+			return
+		}
+
+		list, err := listJobsToKillInFuture(ctx, a.db, status, minutes)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set(http.CanonicalHeaderKey("content-type"), "application/json")
+
+		if err = json.NewEncoder(w).Encode(list); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
+}
+
+// GetByID returns an http.Handler that handles requests for a particular
+// analysis with the provided ID.
+func (a *AnalysesApp) GetByID(ctx context.Context) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+
+		job, err := getJobByID(ctx, a.db, id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set(http.CanonicalHeaderKey("content-type"), "application/json")
+
+		if err = json.NewEncoder(w).Encode(job); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
+}
+
+// UpdateByID returns an http.Handler that handles requests to update an
+// analysis with the provided ID. Only supports updating the status,
+// planned_end_date, description, and name fields.
+func (a *AnalysesApp) UpdateByID(ctx context.Context) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var (
+			ok  bool
+			err error
+		)
+
+		vars := mux.Vars(r)
+		id := vars["id"]
+		defer r.Body.Close()
+
+		jobpatch := make(map[string]interface{})
+
+		if err = json.NewDecoder(r.Body).Decode(&jobpatch); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		dbpatch := map[string]string{}
+
+		if _, ok = jobpatch["status"]; ok {
+			dbpatch["status"] = jobpatch["status"].(string)
+		}
+
+		if _, ok = jobpatch["planned_end_date"]; ok {
+			dbpatch["planned_end_date"] = strconv.FormatInt(jobpatch["planned_end_date"].(int64), 10)
+		}
+
+		if _, ok = jobpatch["description"]; ok {
+			dbpatch["job_description"] = jobpatch["description"].(string)
+		}
+
+		if _, ok = jobpatch["name"]; ok {
+			dbpatch["job_name"] = jobpatch["name"].(string)
+		}
+
+		job, err := updateJob(ctx, a.db, id, dbpatch)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if err = json.NewEncoder(w).Encode(job); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
+}
+
 func main() {
 	var (
 		err        error
@@ -295,141 +448,18 @@ func main() {
 		log.Fatal(err)
 	}
 
+	app := &AnalysesApp{
+		db: db,
+	}
+
 	router := mux.NewRouter()
-
-	router.HandleFunc("/expired/{status}", func(w http.ResponseWriter, r *http.Request) {
-		validStatuses := map[string]bool{
-			"Completed": true,
-			"Failed":    true,
-			"Submitted": true,
-			"Queued":    true,
-			"Running":   true,
-			"Canceled":  true,
-		}
-
-		vars := mux.Vars(r)
-		status := strings.Title(strings.ToLower(vars["status"]))
-		if _, ok := validStatuses[status]; !ok {
-			http.Error(w, fmt.Sprintf("unknown status %s", status), http.StatusBadRequest)
-			return
-		}
-
-		list, err := listJobs(ctx, db, status)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set(http.CanonicalHeaderKey("content-type"), "application/json")
-
-		if err = json.NewEncoder(w).Encode(list); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-	}).Methods("GET")
-
-	router.HandleFunc("/expires-in/{minutes:[0-9]+}/{status}", func(w http.ResponseWriter, r *http.Request) {
-		validStatuses := map[string]bool{
-			"Completed": true,
-			"Failed":    true,
-			"Submitted": true,
-			"Queued":    true,
-			"Running":   true,
-			"Canceled":  true,
-		}
-
-		vars := mux.Vars(r)
-		status := strings.Title(strings.ToLower(vars["status"]))
-		if _, ok := validStatuses[status]; !ok {
-			http.Error(w, fmt.Sprintf("unknown status %s", status), http.StatusBadRequest)
-			return
-		}
-
-		minutes, err := strconv.ParseInt(vars["minutes"], 10, 64)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("can't parse %s as an integer", vars["minutes"]), http.StatusBadRequest)
-			return
-		}
-
-		list, err := listJobsToKillInFuture(ctx, db, status, minutes)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set(http.CanonicalHeaderKey("content-type"), "application/json")
-
-		if err = json.NewEncoder(w).Encode(list); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-	}).Methods("GET")
+	router.Handle("/debug/vars", http.DefaultServeMux)
+	router.Handle("/expired/{status}", app.ExpiredByStatus(ctx)).Methods("GET")
+	router.Handle("/expires-in/{minutes:[0-9]+}/{status}", app.ExpiresInByStatus(ctx)).Methods("GET")
 
 	idPath := "/id/{id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}"
-
-	router.HandleFunc(idPath, func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		id := vars["id"]
-
-		job, err := getJobByID(ctx, db, id)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set(http.CanonicalHeaderKey("content-type"), "application/json")
-
-		if err = json.NewEncoder(w).Encode(job); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-	}).Methods("GET")
-
-	router.HandleFunc(idPath, func(w http.ResponseWriter, r *http.Request) {
-		var (
-			ok  bool
-			err error
-		)
-
-		vars := mux.Vars(r)
-		id := vars["id"]
-		defer r.Body.Close()
-
-		jobpatch := make(map[string]interface{})
-
-		if err = json.NewDecoder(r.Body).Decode(&jobpatch); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		dbpatch := map[string]string{}
-
-		if _, ok = jobpatch["status"]; ok {
-			dbpatch["status"] = jobpatch["status"].(string)
-		}
-
-		if _, ok = jobpatch["planned_end_date"]; ok {
-			dbpatch["planned_end_date"] = strconv.FormatInt(jobpatch["planned_end_date"].(int64), 10)
-		}
-
-		if _, ok = jobpatch["description"]; ok {
-			dbpatch["job_description"] = jobpatch["description"].(string)
-		}
-
-		if _, ok = jobpatch["name"]; ok {
-			dbpatch["job_name"] = jobpatch["name"].(string)
-		}
-
-		job, err := updateJob(ctx, db, id, dbpatch)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		if err = json.NewEncoder(w).Encode(job); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-
-	}).Methods("PATCH")
-
-	router.Handle("/debug/vars", http.DefaultServeMux)
+	router.Handle(idPath, app.GetByID(ctx)).Methods("GET")
+	router.Handle(idPath, app.UpdateByID(ctx)).Methods("PATCH")
 
 	addr := fmt.Sprintf(":%d", *listenPort)
 	if useSSL {
