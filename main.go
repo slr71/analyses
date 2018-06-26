@@ -28,6 +28,39 @@ import (
 // and
 // https://stackoverflow.com/questions/24564619/nullable-time-time-in-golang
 
+// NullInt64 is an alias of the sql.NullInt64. Having an alias allows us to
+// extend the types, which we can't do without the alias because sql.NullInt64
+// is defined in another package.
+type NullInt64 sql.NullInt64
+
+// Scan implements the Scanner interface for our NullInt64 alias.
+func (i *NullInt64) Scan(value interface{}) error {
+	var (
+		valid bool
+		n     sql.NullInt64
+		err   error
+	)
+
+	if err = n.Scan(value); err != nil {
+		return err
+	}
+
+	if reflect.TypeOf(value) != nil {
+		valid = true
+	}
+
+	*i = NullInt64{i.Int64, valid}
+	return nil
+}
+
+// MarshalJSON implements the json.Marshaler interface for our NullInt64 alias.
+func (i *NullInt64) MarshalJSON() ([]byte, error) {
+	if !i.Valid {
+		return []byte("null"), nil
+	}
+	return json.Marshal(i.Int64)
+}
+
 // NullTime is an alias of pq.NullTime, which allows us to extend the type by
 // implementing custom JSON marshalling logic.
 type NullTime pq.NullTime
@@ -166,6 +199,76 @@ func listJobs(ctx context.Context, db *sql.DB, status string) (*JobList, error) 
 
 func listJobsToKillInFuture(ctx context.Context, db *sql.DB, status string, interval int64) (*JobList, error) {
 	return getJobList(ctx, db, fmt.Sprintf(jobsToKillInFutureQuery, interval), status)
+}
+
+// StatusUpdate contains the information contained in a status update for an
+// analysis in the database
+type StatusUpdate struct {
+	ID                     string    `json:"id"`          // The analysis ID
+	ExternalID             string    `json:"external_id"` // Also referred to as invocation ID
+	Status                 string    `json:"status"`
+	SentFrom               string    `json:"sent_from"`
+	SentOn                 int64     `json:"sent_on"` // Not actually nullable.
+	Propagated             bool      `json:"propagated"`
+	PropagationAttempts    int64     `json:"propagation_attempts"`
+	LastPropagationAttempt NullInt64 `json:"last_propagation_attempt"`
+	CreatedDate            NullTime  `json:"created_date"` // Not actually nullable.
+}
+
+// StatusUpdates is a list of StatusUpdates. Mostly exists for marshalling a
+// list into JSON in a format our other services generally expect.
+type StatusUpdates struct {
+	Updates []StatusUpdate `json:"status_updates"`
+}
+
+const statusUpdatesByID = `
+SELECT j.id,
+       u.external_id,
+       u.status,
+       u.sent_from,
+       u.sent_on,
+       u.propagated,
+       u.propagation_attempts,
+       u.last_propagation_attempt,
+       u.created_date
+  FROM jobs j
+  JOIN job_steps s
+    ON j.id = s.job_id
+  JOIN job_status_updates u
+    ON s.external_id = u.external_id
+ WHERE j.id = $1
+ ORDER BY u.sent_on ASC`
+
+func getStatusUpdates(ctx context.Context, db *sql.DB, id string) (*StatusUpdates, error) {
+	rows, err := db.QueryContext(ctx, statusUpdatesByID, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	statusUpdates := &StatusUpdates{
+		Updates: []StatusUpdate{},
+	}
+
+	for rows.Next() {
+		var u StatusUpdate
+		err = rows.Scan(
+			&u.ID,
+			&u.ExternalID,
+			&u.Status,
+			&u.SentFrom,
+			&u.SentOn,
+			&u.Propagated,
+			&u.PropagationAttempts,
+			&u.LastPropagationAttempt,
+			&u.CreatedDate,
+		)
+		if err != nil {
+			return nil, err
+		}
+		statusUpdates.Updates = append(statusUpdates.Updates, u)
+	}
+	return statusUpdates, nil
 }
 
 const getJobByIDQuery = `
@@ -396,6 +499,25 @@ func (a *AnalysesApp) UpdateByID(ctx context.Context) http.Handler {
 	})
 }
 
+// StatusUpdates creates an http.Handler for requests for a list of status
+// updates based on the provided analysis ID.
+func (a *AnalysesApp) StatusUpdates(ctx context.Context) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+
+		updates, err := getStatusUpdates(ctx, a.db, id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if err = json.NewEncoder(w).Encode(updates); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
+}
+
 func main() {
 	var (
 		err        error
@@ -460,6 +582,7 @@ func main() {
 	idPath := "/id/{id:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}"
 	router.Handle(idPath, app.GetByID(ctx)).Methods("GET")
 	router.Handle(idPath, app.UpdateByID(ctx)).Methods("PATCH")
+	router.Handle(fmt.Sprintf("%s/status-updates", idPath), app.StatusUpdates(ctx)).Methods("GET")
 
 	addr := fmt.Sprintf(":%d", *listenPort)
 	if useSSL {
