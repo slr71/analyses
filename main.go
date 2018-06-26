@@ -287,13 +287,33 @@ SELECT j.id,
     ON j.user_id = u.id
  WHERE j.id = $1`
 
-func getJobByID(ctx context.Context, db *sql.DB, id string) (*Job, error) {
+const getJobByExternalIDQuery = `
+ SELECT DISTINCT j.id,
+        j.app_id,
+        j.user_id,
+        users.username,
+        j.status,
+        j.job_description as description,
+        j.job_name as name,
+        j.result_folder_path as result_folder,
+        j.start_date,
+        j.planned_end_date
+   FROM jobs j
+   JOIN job_steps s
+     ON j.id = s.job_id
+   JOIN job_status_updates u
+     ON s.external_id = u.external_id
+ 	JOIN users
+ 	  ON j.user_id = users.id
+  WHERE u.external_id = $1`
+
+func getJob(ctx context.Context, db *sql.DB, query, id string) (*Job, error) {
 	var (
 		j   Job
 		err error
 	)
 
-	row := db.QueryRowContext(ctx, getJobByIDQuery, id)
+	row := db.QueryRowContext(ctx, query, id)
 
 	if err = row.Scan(
 		&j.ID,
@@ -311,6 +331,14 @@ func getJobByID(ctx context.Context, db *sql.DB, id string) (*Job, error) {
 	}
 
 	return &j, err
+}
+
+func getJobByID(ctx context.Context, db *sql.DB, id string) (*Job, error) {
+	return getJob(ctx, db, getJobByIDQuery, id)
+}
+
+func getJobByExternalID(ctx context.Context, db *sql.DB, externalID string) (*Job, error) {
+	return getJob(ctx, db, getJobByExternalIDQuery, externalID)
 }
 
 const updateJobTemplate = `
@@ -435,6 +463,27 @@ func (a *AnalysesApp) GetByID(ctx context.Context) http.Handler {
 		id := vars["id"]
 
 		job, err := getJobByID(ctx, a.db, id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set(http.CanonicalHeaderKey("content-type"), "application/json")
+
+		if err = json.NewEncoder(w).Encode(job); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
+}
+
+// GetByExternalID returns an http.Handler that handles requests for a
+// particular analysis that has a step with the given external ID.
+func (a *AnalysesApp) GetByExternalID(ctx context.Context) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["external_id"]
+
+		job, err := getJobByExternalID(ctx, a.db, id)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -583,6 +632,8 @@ func main() {
 	router.Handle(idPath, app.GetByID(ctx)).Methods("GET")
 	router.Handle(idPath, app.UpdateByID(ctx)).Methods("PATCH")
 	router.Handle(fmt.Sprintf("%s/status-updates", idPath), app.StatusUpdates(ctx)).Methods("GET")
+
+	router.Handle("/external-id/{external_id}", app.GetByExternalID(ctx)).Methods("GET")
 
 	addr := fmt.Sprintf(":%d", *listenPort)
 	if useSSL {
