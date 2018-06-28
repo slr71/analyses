@@ -415,6 +415,8 @@ func (a *AnalysesApp) ExpiredByStatus(ctx context.Context) http.Handler {
 			return
 		}
 
+		log.Printf("looking up expired analyses with a status of %s\n", status)
+
 		list, err := listJobs(ctx, a.db, status)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -456,6 +458,8 @@ func (a *AnalysesApp) ExpiresInByStatus(ctx context.Context) http.Handler {
 			return
 		}
 
+		log.Printf("looking up list of jobs with a status of %s that will expire in about %d minutes\n", status, minutes)
+
 		list, err := listJobsToKillInFuture(ctx, a.db, status, minutes)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -477,6 +481,8 @@ func (a *AnalysesApp) GetByID(ctx context.Context) http.Handler {
 		vars := mux.Vars(r)
 		id := vars["id"]
 
+		log.Printf("look up analysis with an ID of %s\n", id)
+
 		job, err := getJobByID(ctx, a.db, id)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -497,6 +503,8 @@ func (a *AnalysesApp) GetByExternalID(ctx context.Context) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		id := vars["external_id"]
+
+		log.Printf("look up analysis by the external ID %s\n", id)
 
 		job, err := getJobByExternalID(ctx, a.db, id)
 		if err != nil {
@@ -526,6 +534,8 @@ func (a *AnalysesApp) UpdateByID(ctx context.Context) http.Handler {
 		id := vars["id"]
 		defer r.Body.Close()
 
+		log.Printf("patching analysis with an ID of %s\n", id)
+
 		jobpatch := make(map[string]interface{})
 
 		if err = json.NewDecoder(r.Body).Decode(&jobpatch); err != nil {
@@ -551,6 +561,10 @@ func (a *AnalysesApp) UpdateByID(ctx context.Context) http.Handler {
 			dbpatch["job_name"] = jobpatch["name"].(string)
 		}
 
+		for k, v := range jobpatch {
+			log.Printf("setting %s to %v for analysis %s\n", k, v, id)
+		}
+
 		job, err := updateJob(ctx, a.db, id, dbpatch)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -569,6 +583,8 @@ func (a *AnalysesApp) StatusUpdates(ctx context.Context) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		id := vars["id"]
+
+		log.Printf("look up status updates for analysis %s\n", id)
 
 		updates, err := getStatusUpdates(ctx, a.db, id)
 		if err != nil {
@@ -615,7 +631,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Printf("using config file at %s", viper.ConfigFileUsed())
+	log.Printf("using config file at %s\n", viper.ConfigFileUsed())
 
 	dbURI := viper.GetString("db.uri")
 	dbparsed, err := url.Parse(dbURI)
@@ -627,7 +643,7 @@ func main() {
 	}
 	dbURI = dbparsed.String()
 
-	log.Printf("connecting to the %s database on %s:%s", dbparsed.Path, dbparsed.Hostname(), dbparsed.Port())
+	log.Printf("connecting to the %s database on %s:%s\n", dbparsed.Path, dbparsed.Hostname(), dbparsed.Port())
 	db, err := sql.Open("postgres", dbURI)
 	if err != nil {
 		log.Fatal(err)
@@ -636,7 +652,7 @@ func main() {
 	if err = db.Ping(); err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("connected the database")
+	log.Println("connected the database")
 
 	app := &AnalysesApp{
 		db: db,
@@ -654,7 +670,7 @@ func main() {
 
 	router.Handle("/external-id/{external_id}", app.GetByExternalID(ctx)).Methods("GET")
 
-	log.Printf("listening for requests on port %d", *listenPort)
+	log.Printf("listening for requests on port %d\n", *listenPort)
 	addr := fmt.Sprintf(":%d", *listenPort)
 	if useSSL {
 		log.Fatal(http.ListenAndServeTLS(addr, *sslCert, *sslKey, router))
