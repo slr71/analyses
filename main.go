@@ -615,6 +615,8 @@ func main() {
 		log.Fatal(err)
 	}
 
+	log.Printf("using config file at %s", viper.ConfigFileUsed())
+
 	dbURI := viper.GetString("db.uri")
 	dbparsed, err := url.Parse(dbURI)
 	if err != nil {
@@ -625,6 +627,7 @@ func main() {
 	}
 	dbURI = dbparsed.String()
 
+	log.Printf("connecting to the %s database on %s:%s", dbparsed.Path, dbparsed.Hostname(), dbparsed.Port())
 	db, err := sql.Open("postgres", dbURI)
 	if err != nil {
 		log.Fatal(err)
@@ -633,6 +636,7 @@ func main() {
 	if err = db.Ping(); err != nil {
 		log.Fatal(err)
 	}
+	log.Printf("connected the database")
 
 	app := &AnalysesApp{
 		db: db,
@@ -650,6 +654,7 @@ func main() {
 
 	router.Handle("/external-id/{external_id}", app.GetByExternalID(ctx)).Methods("GET")
 
+	log.Printf("listening for requests on port %d", *listenPort)
 	addr := fmt.Sprintf(":%d", *listenPort)
 	if useSSL {
 		log.Fatal(http.ListenAndServeTLS(addr, *sslCert, *sslKey, router))
