@@ -118,6 +118,7 @@ type Job struct {
 	ResultFolder   string   `json:"result_folder"`
 	StartDate      NullTime `json:"start_date"`
 	PlannedEndDate NullTime `json:"planned_end_date,omitempty"`
+	SystemID       string   `json:"system_id"`
 }
 
 // JobList is a list of Jobs. Duh.
@@ -135,10 +136,13 @@ SELECT j.id,
        j.job_name as name,
        j.result_folder_path as result_folder,
        j.start_date,
-       j.planned_end_date
+       j.planned_end_date,
+       t.system_id
   FROM jobs j
   JOIN users u
     ON j.user_id = u.id
+  JOIN job_types t
+    ON j.job_type_id = t.id
  WHERE j.status = $1
    AND j.planned_end_date <= NOW()`
 
@@ -152,10 +156,13 @@ SELECT j.id,
        j.job_name as name,
        j.result_folder_path as result_folder,
        j.start_date,
-       j.planned_end_date
+       j.planned_end_date,
+       t.system_id
   FROM jobs j
   JOIN users u
     ON j.user_id = u.id
+  JOIN job_types t
+    ON j.job_type_id = t.id
  WHERE j.status = $1
    AND NOW() < j.planned_end_date
 	 AND j.planned_end_date <= NOW() + interval '%d minutes'`
@@ -184,6 +191,7 @@ func getJobList(ctx context.Context, db *sql.DB, query, status string) (*JobList
 			&j.ResultFolder,
 			&j.StartDate,
 			&j.PlannedEndDate,
+			&j.SystemID,
 		)
 		if err != nil {
 			return nil, err
@@ -281,10 +289,13 @@ SELECT j.id,
        j.job_name as name,
        j.result_folder_path as result_folder,
        j.start_date,
-       j.planned_end_date
+       j.planned_end_date,
+       t.system_id
   FROM jobs j
   JOIN users u
     ON j.user_id = u.id
+  JOIN job_types t
+    ON j.job_type_id = t.id
  WHERE j.id = $1`
 
 const getJobByExternalIDQuery = `
@@ -297,14 +308,17 @@ const getJobByExternalIDQuery = `
         j.job_name as name,
         j.result_folder_path as result_folder,
         j.start_date,
-        j.planned_end_date
+        j.planned_end_date,
+        t.system_id
    FROM jobs j
    JOIN job_steps s
      ON j.id = s.job_id
    JOIN job_status_updates u
      ON s.external_id = u.external_id
  	JOIN users
- 	  ON j.user_id = users.id
+    ON j.user_id = users.id
+  JOIN job_types t
+    ON j.job_type_id = t.id
   WHERE u.external_id = $1`
 
 func getJob(ctx context.Context, db *sql.DB, query, id string) (*Job, error) {
@@ -326,6 +340,7 @@ func getJob(ctx context.Context, db *sql.DB, query, id string) (*Job, error) {
 		&j.ResultFolder,
 		&j.StartDate,
 		&j.PlannedEndDate,
+		&j.SystemID,
 	); err != nil {
 		return nil, err
 	}
