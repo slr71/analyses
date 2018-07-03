@@ -229,6 +229,43 @@ type StatusUpdates struct {
 	Updates []StatusUpdate `json:"status_updates"`
 }
 
+const stepTypesQuery = `
+SELECT t.name
+  FROM jobs j
+  JOIN job_steps s
+    ON j.id = s.job_id
+  JOIN job_types t
+    ON s.job_type_id = t.id
+ WHERE j.id = $1`
+
+func isInteractive(ctx context.Context, db *sql.DB, id string) (bool, error) {
+	rows, err := db.QueryContext(ctx, stepTypesQuery, id)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	var jobTypes []string
+
+	for rows.Next() {
+		var t string
+		err = rows.Scan(&t)
+		if err != nil {
+			return false, err
+		}
+		jobTypes = append(jobTypes, t)
+	}
+
+	found := false
+	for _, j := range jobTypes {
+		if j == "Interactive" {
+			found = true
+		}
+	}
+
+	return found, nil
+}
+
 const statusUpdatesByID = `
 SELECT j.id,
        u.external_id,
