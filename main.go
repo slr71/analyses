@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	_ "expvar"
 
@@ -587,7 +588,7 @@ func (a *AnalysesApp) UpdateByID(ctx context.Context) http.Handler {
 		}
 
 		if _, ok = jobpatch["planned_end_date"]; ok {
-			dbpatch["planned_end_date"] = strconv.FormatInt(int64(jobpatch["planned_end_date"].(float64)), 10)
+			dbpatch["planned_end_date"] = time.Unix(0, int64(jobpatch["planned_end_date"].(float64))*1000000).Format("2006-01-02 15:04:05")
 		}
 
 		if _, ok = jobpatch["description"]; ok {
