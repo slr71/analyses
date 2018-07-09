@@ -587,7 +587,7 @@ func (a *AnalysesApp) UpdateByID(ctx context.Context) http.Handler {
 		}
 
 		if _, ok = jobpatch["planned_end_date"]; ok {
-			dbpatch["planned_end_date"] = strconv.FormatInt(jobpatch["planned_end_date"].(int64), 10)
+			dbpatch["planned_end_date"] = strconv.FormatInt(int64(jobpatch["planned_end_date"].(float64)), 10)
 		}
 
 		if _, ok = jobpatch["description"]; ok {
