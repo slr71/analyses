@@ -635,6 +635,31 @@ func (a *AnalysesApp) StatusUpdates(ctx context.Context) http.Handler {
 	})
 }
 
+// IsInteractive returns an http.Handler for requests to determine whether or
+// not the given analysis is executed by an interactive app.
+func (a *AnalysesApp) IsInteractive(ctx context.Context) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+
+		log.Printf("determine interactivity status for analysus %s\n", id)
+
+		isIDInteractive, err := isInteractive(ctx, a.db, id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		retval := map[string]bool{
+			"interactive": isIDInteractive,
+		}
+
+		if err = json.NewEncoder(w).Encode(retval); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
+}
+
 func main() {
 	var (
 		err        error
@@ -704,6 +729,7 @@ func main() {
 	router.Handle(idPath, app.GetByID(ctx)).Methods("GET")
 	router.Handle(idPath, app.UpdateByID(ctx)).Methods("PATCH")
 	router.Handle(fmt.Sprintf("%s/status-updates", idPath), app.StatusUpdates(ctx)).Methods("GET")
+	router.Handle(fmt.Sprintf("%s/interactive", idPath), app.IsInteractive(ctx)).Methods("GET")
 
 	router.Handle("/external-id/{external_id}", app.GetByExternalID(ctx)).Methods("GET")
 
