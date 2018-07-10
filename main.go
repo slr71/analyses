@@ -588,7 +588,30 @@ func (a *AnalysesApp) UpdateByID(ctx context.Context) http.Handler {
 		}
 
 		if _, ok = jobpatch["planned_end_date"]; ok {
-			dbpatch["planned_end_date"] = time.Unix(0, int64(jobpatch["planned_end_date"].(float64))*1000000).Add(7 * time.Hour).Format("2006-01-02 15:04:05")
+			// Get the time zone offset from UTC in seconds
+			_, offset := time.Now().Local().Zone()
+
+			// Durations are tracked as as nanoseconds stored as an int64, so convert
+			// the seconds into an int64 (which shouldn't lose precision), then
+			// multiply by 1000000000 to convert to Nanoseconds. Next multiply by -1
+			// to flip the sign on the offset, which is needed because we're doing
+			// weird-ish stuff with timestamps in the database. Multiply all of that
+			// by time.Nanosecond to make sure that we're using the right units.
+			addition := time.Duration(int64(offset)*1000000000*-1) * time.Nanosecond
+
+			// The planned_end_date value gets parsed as a float64 even if it's an
+			// int64 sent through. So, convert the interface{} to a float64, then
+			// convert that into an int64. The value is in milliseconds and the
+			// time.Unix() function takes nanoseconds, so multiply by 1000000 before
+			// passing it to time.Unix().
+			enddatenano := int64(jobpatch["planned_end_date"].(float64)) * 1000000
+
+			// We're using a string instead of passing the time.Time instance into the
+			// sql.Query/Exec() functions because we're constructing the SET part of
+			// the query manually.
+			dbpatch["planned_end_date"] = time.Unix(0, enddatenano).
+				Add(addition).
+				Format("2006-01-02 15:04:05")
 		}
 
 		if _, ok = jobpatch["description"]; ok {
