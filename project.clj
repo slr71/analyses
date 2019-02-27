@@ -7,6 +7,7 @@
                            [clj-http "3.9.1"]
                            [lambdaisland/uri "1.1.0"]
                            [medley "1.1.0"]
+                           [compojure "1.6.1"]
                            [metosin/compojure-api "1.1.11"]
                            [org.cyverse/common-cli "2.8.1"]
                            [org.cyverse/common-cfg "2.8.1"]
