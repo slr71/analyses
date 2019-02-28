@@ -9,6 +9,7 @@
                  [medley "1.1.0"]
                  [compojure "1.6.1"]
                  [metosin/compojure-api "1.1.11"]
+                 [org.cyverse/kameleon "3.0.3"]
                  [org.cyverse/clojure-commons "2.8.3"]
                  [org.cyverse/common-cli "2.8.1"]
                  [org.cyverse/common-cfg "2.8.1"]
