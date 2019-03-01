@@ -74,23 +74,25 @@
 (defn delete-submission
   "Deletes a submission record. id is the UUID primary key for the submission."
   [id]
-  (delete submissions (where {:id (uuidify id)})))
+  (delete submissions (where {:id (uuidify id)}))
+  {:id id})
+
+(defn- get-user
+  [username]
+  (:id (first (select users (fields :id) (where {:username username})))))
 
 (defn get-badge
   "Returns badge information. id is the UUID primary key for the badge."
-  [id]
+  [id user]
   (let [obj (first (select badges
                            (with users)
                            (with submissions)
                            (fields :id :user_id :users.username :submission_id :submissions.submission)
-                           (where {:badges.id (uuidify id)})))]
+                           (where {:badges.id (uuidify id)
+                                   :user_id   (get-user user)})))]
     (if obj
       (assoc obj :submission (parse-string (.getValue (:submission obj))))
       nil)))
-
-(defn get-user
-  [username]
-  (:id (first (select users (fields :id) (where {:username username})))))
 
 (defn add-badge
   [user submission]
@@ -110,5 +112,7 @@
 
 (defn delete-badge
   "Delete a badge. id is the UUID primary key for the badge."
-  [id]
-  (delete badges (where {:id (uuidify id)})))
+  [id user]
+  (delete badges (where {:id      (uuidify id)
+                         :user_id (get-user user)}))
+  {:id id})
