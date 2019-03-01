@@ -18,6 +18,7 @@
                  [org.cyverse/service-logging "2.8.0"]
                  [me.raynes/fs "1.4.6"]
                  [ring "1.7.1"]
+                 [cheshire "5.8.1"]
                  [proto-repl "0.3.1"]]
   :eastwood {:exclude-namespaces [apps.protocols :test-paths]
              :linters [:wrong-arity :wrong-ns-form :wrong-pre-post :wrong-tag :misplaced-docstrings]}
