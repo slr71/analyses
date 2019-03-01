@@ -1,5 +1,6 @@
 (ns analyses.config
   (:require [clojure-commons.config :as cc]
+            [me.raynes.fs :as fs]
             [slingshot.slingshot :refer [throw+]]))
 
 (def docs-uri "/docs")
@@ -71,10 +72,48 @@
   (when-not (cc/validate-config configs config-valid)
     (throw+ {:type :clojure-commons.exception/invalid-configuration})))
 
-(defn load-config-from-file
+(defn- load-and-validate-config-file
   "Loads the configuration settings from a file."
   [cfg-path & [{:keys [log-config?] :or {log-config? true}}]]
   (cc/load-config-from-file cfg-path props)
   (when log-config?
     (cc/log-config props))
   (validate-config))
+
+(defn- iplant-conf-dir-file
+  [filename]
+  (when-let [conf-dir (System/getenv "IPLANT_CONF_DIR")]
+    (let [f (fs/file conf-dir filename)]
+      (when (.isFile f) (.getPath f)))))
+
+(defn- cwd-file
+  [filename]
+  (let [f (fs/file filename)]
+    (when (.isFile f) (.getPath f))))
+
+(defn- classpath-file
+  [filename]
+  (-> (Thread/currentThread)
+      (.getContextClassLoader)
+      (.findResource filename)
+      (.toURI)
+      (fs/file)))
+
+(defn- no-configuration-found
+  [filename]
+  (throw (RuntimeException. (str "configuration file " filename " not found"))))
+
+(defn- find-config-file
+  []
+  (let [conf-file "analyses.properties"]
+    (or (iplant-conf-dir-file conf-file)
+        (cwd-file conf-file)
+        (classpath-file conf-file)
+        (no-configuration-found conf-file))))
+
+(defn load-config-from-file
+  "Loads the configuration settings from a properties file."
+  ([]
+   (load-config-from-file (find-config-file)))
+  ([cfg-path]
+   (load-and-validate-config-file cfg-path)))

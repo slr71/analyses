@@ -1,6 +1,5 @@
 (ns analyses.persistence
   (:require [korma.core :refer [select
-                                update
                                 delete
                                 from
                                 where
@@ -12,9 +11,28 @@
                                 exec-raw
                                 with
                                 has-one]]
+            [korma.db :refer [create-db default-connection]]
+            [analyses.config :as config]
             [kameleon.uuids :refer [uuidify]]))
 
 (declare users submissions badges)
+
+(defn- create-db-spec
+  "Creates the database connection spec to use when accessing the database
+   using Korma."
+  []
+  {:classname   (config/db-driver-class)
+   :subprotocol (config/db-subprotocol)
+   :subname     (str "//" (config/db-host) ":" (config/db-port) "/" (config/db-name))
+   :user        (config/db-user)
+   :password    (config/db-password)})
+
+(defn define-database
+  "Defines the database connection to use from within Clojure."
+  []
+  (let [spec (create-db-spec)]
+    (defonce de (create-db spec))
+    (default-connection de)))
 
 (defentity users)
 
