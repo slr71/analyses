@@ -6,6 +6,7 @@
                                 insert
                                 values
                                 fields
+                                join
                                 defentity
                                 belongs-to
                                 exec-raw
@@ -13,7 +14,9 @@
                                 has-one]]
             [korma.db :refer [create-db default-connection]]
             [analyses.config :as config]
-            [kameleon.uuids :refer [uuidify]]))
+            [kameleon.uuids :refer [uuidify]]
+            [cheshire.core :refer [parse-string generate-string]])
+  (:import [java.util UUID]))
 
 (declare users submissions badges)
 
@@ -39,28 +42,32 @@
 (defentity submissions)
 
 (defentity badges
-           (belongs-to users {:fk :user_id})
-           (has-one submissions {:fk :submission_id}))
+  (belongs-to users {:fk :user_id})
+  (belongs-to submissions {:fk :submission_id}))
 
 (defn add-submission
   "Adds a new submission to the database."
   [submission]
-  (exec-raw ["INSERT INTO submissions (submission) VALUES ( CAST ( ? AS JSON ))"
-             [(cast Object submission)]]))
+  (let [new-uuid (UUID/randomUUID)]
+    (exec-raw ["INSERT INTO submissions (id, submission) VALUES ( ?, CAST ( ? AS JSON ))"
+               [new-uuid (cast Object (generate-string submission))]])
+    new-uuid))
 
 (defn get-submission
   "Returns a submission record. id is the UUID primary key for the submission."
   [id]
-  (select submissions
-          (where {:id (uuidify id)})))
+  (let [obj (first (select submissions
+                     (where {:id (uuidify id)})))]
+    (assoc obj :submission (parse-string (.getValue (:submission obj))))))
 
 (defn update-submission
   "Updates a submission record. id is the UUID primary key for the submission.
    submissions is the new state of the submission as a map. Adapted from
    similar code in the apps service."
   [id submission]
-  (exec-raw ["UPDATE jobs SET submission = CAST ( ? AS JSON ) where id = ?"
-             [(cast Object submission) id]]))
+  (exec-raw ["UPDATE submissions SET submission = CAST ( ? AS JSON ) where id = ?"
+             [(cast Object (generate-string submission)) (uuidify id)]])
+  (get-submission id))
 
 (defn delete-submission
   "Deletes a submission record. id is the UUID primary key for the submission."
@@ -70,21 +77,24 @@
 (defn get-badge
   "Returns badge information. id is the UUID primary key for the badge."
   [id]
-  (select badges
-    (with users)
-    (with submissions)
-    (where {:badges.id (uuidify id)})))
+  (let [obj (first (select badges
+                     (with users)
+                     (with submissions)
+                     (fields :id :user_id :users.username :submission_id :submissions.submission)
+                     (where {:badges.id (uuidify id)})))]
+    (assoc obj :submission (parse-string (.getValue (:submission obj))))))
 
 (defn get-user
   [username]
   (:id (first (select users (fields :id) (where {:username username})))))
 
 (defn add-badge
-  [id user submission]
-  (let [submission-id (add-submission submission)
-        user-id (get-user user)]
-    (insert badges (values {:submission_id submission-id
-                            :user_id user-id}))))
+  [user submission]
+  (let [new-uuid      (UUID/randomUUID)]
+    (insert badges (values {:id            new-uuid
+                            :submission_id (add-submission submission)
+                            :user_id       (get-user user)}))
+    new-uuid))
 
 (defn delete-badge
   "Delete a badge. id is the UUID primary key for the badge."
