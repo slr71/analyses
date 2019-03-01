@@ -12,6 +12,7 @@
                                 exec-raw
                                 with
                                 has-one]]
+            [clojure.tools.logging :as log]
             [korma.db :refer [create-db default-connection]]
             [analyses.config :as config]
             [kameleon.uuids :refer [uuidify]]
@@ -84,10 +85,13 @@
 (defn get-badge
   "Returns badge information. id is the UUID primary key for the badge."
   [id user]
+  (log/debug "")
+  (log/debug "id:" id "user:" user)
+  (log/debug "")
   (let [obj (first (select badges
                            (with users)
                            (with submissions)
-                           (fields :id :user_id :users.username :submission_id :submissions.submission)
+                           (fields :id  [:users.username :user] :submissions.submission)
                            (where {:badges.id (uuidify id)
                                    :user_id   (get-user user)})))]
     (if obj

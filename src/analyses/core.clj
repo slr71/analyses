@@ -20,7 +20,7 @@
   []
   (require 'ring.adapter.jetty)
   (log/warn "Started listening on" (config/listen-port))
-  ((eval 'ring.adapter.jetty/run-jetty) routes/badge-routes {:port (config/listen-port)}))
+  ((eval 'ring.adapter.jetty/run-jetty) routes/app {:port (config/listen-port)}))
 
 (defn -main
   [& args]
