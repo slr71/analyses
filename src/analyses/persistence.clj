@@ -79,12 +79,11 @@
 (defn get-badge
   "Returns badge information. id is the UUID primary key for the badge."
   [id]
-  (let [obj (first (or (select badges
-                               (with users)
-                               (with submissions)
-                               (fields :id :user_id :users.username :submission_id :submissions.submission)
-                               (where {:badges.id (uuidify id)}))
-                       []))]
+  (let [obj (first (select badges
+                           (with users)
+                           (with submissions)
+                           (fields :id :user_id :users.username :submission_id :submissions.submission)
+                           (where {:badges.id (uuidify id)})))]
     (if obj
       (assoc obj :submission (parse-string (.getValue (:submission obj))))
       nil)))
