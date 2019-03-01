@@ -58,7 +58,9 @@
   [id]
   (let [obj (first (select submissions
                      (where {:id (uuidify id)})))]
-    (assoc obj :submission (parse-string (.getValue (:submission obj))))))
+    (if obj
+      (assoc obj :submission (parse-string (.getValue (:submission obj))))
+      nil)))
 
 (defn update-submission
   "Updates a submission record. id is the UUID primary key for the submission.
@@ -77,12 +79,15 @@
 (defn get-badge
   "Returns badge information. id is the UUID primary key for the badge."
   [id]
-  (let [obj (first (select badges
-                     (with users)
-                     (with submissions)
-                     (fields :id :user_id :users.username :submission_id :submissions.submission)
-                     (where {:badges.id (uuidify id)})))]
-    (assoc obj :submission (parse-string (.getValue (:submission obj))))))
+  (let [obj (first (or (select badges
+                               (with users)
+                               (with submissions)
+                               (fields :id :user_id :users.username :submission_id :submissions.submission)
+                               (where {:badges.id (uuidify id)}))
+                       []))]
+    (if obj
+      (assoc obj :submission (parse-string (.getValue (:submission obj))))
+      nil)))
 
 (defn get-user
   [username]
@@ -90,11 +95,19 @@
 
 (defn add-badge
   [user submission]
-  (let [new-uuid      (UUID/randomUUID)]
+  (let [new-uuid (UUID/randomUUID)]
     (insert badges (values {:id            new-uuid
                             :submission_id (add-submission submission)
                             :user_id       (get-user user)}))
     new-uuid))
+
+(defn update-badge
+  [id user submission]
+  (korma.core/update badges
+    (korma.core/set-fields {:submission_id (add-submission submission)
+                            :user_id (get-user user)})
+    (where {:id (uuidify id)}))
+  (get-badge (uuidify id)))
 
 (defn delete-badge
   "Delete a badge. id is the UUID primary key for the badge."
