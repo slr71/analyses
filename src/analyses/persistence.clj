@@ -16,7 +16,8 @@
             [korma.db :refer [create-db default-connection]]
             [analyses.config :as config]
             [kameleon.uuids :refer [uuidify]]
-            [cheshire.core :refer [parse-string generate-string]])
+            [cheshire.core :refer [parse-string generate-string]]
+            [clojure-commons.exception-util :as cxu])
   (:import [java.util UUID]))
 
 (declare users submissions badges)
@@ -95,7 +96,7 @@
       (assoc obj :submission (-> (:submission obj)
                                  (.getValue)
                                  (parse-string keyword)))
-      nil)))
+      (cxu/not-found {:id id :user user}))))
 
 (defn add-badge
   [user submission]
@@ -107,13 +108,15 @@
 
 (defn update-badge
   [id user badge]
-  (let [user-id       (get-user (:user badge))
-        submission-id (add-submission (:submission badge))]
-    (korma.core/update badges
-      (korma.core/set-fields {:submission_id submission-id
-                              :user_id       user-id})
-      (where {:id (uuidify id)}))
-    (get-badge id user)))
+  (if-not (first (select badges (where {:id (uuidify id)})))
+    (cxu/not-found {:id id :user user})
+    (let [user-id       (get-user (:user badge))
+          submission-id (add-submission (:submission badge))]
+      (korma.core/update badges
+                         (korma.core/set-fields {:submission_id submission-id
+                                                 :user_id       user-id})
+                         (where {:id (uuidify id)}))
+      (get-badge id user))))
 
 (defn delete-badge
   "Delete a badge. id is the UUID primary key for the badge."

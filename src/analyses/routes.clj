@@ -3,12 +3,18 @@
         [common-swagger-api.schema :only [StandardUserQueryParams]])
   (:require [compojure.api.sweet :refer :all]
             [common-swagger-api.schema.apps :refer [AnalysisSubmission]]
+            [clojure-commons.exception :refer [exception-handlers]]
+            [clojure-commons.lcase-params :refer [wrap-lcase-params]]
+            [clojure-commons.query-params :refer [wrap-query-params]]
+            [compojure.api.middleware :refer [wrap-exceptions]]
             [ring.util.http-response :refer [ok]]
+            [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [ring.swagger.coerce :as rc]
             [ring.swagger.common :refer [value-of]]
             [schema.core :as s]
             [schema.coerce :as sc]
             [schema.utils :as su]
+            [service-logging.middleware :refer [log-validation-errors add-user-to-context]]
             [slingshot.slingshot :refer [throw+]]
             [analyses.persistence :refer [add-badge get-badge update-badge delete-badge]])
   (:import [java.util UUID]))
@@ -47,29 +53,36 @@
       (throw+ (assoc result :type :compojure.api.exception/response-validation))
       result)))
 
-(def app
-  (api
-    {:swagger
-      {:ui "/docs"
-       :spec "/swagger.json"
-       :data {:info {:title "Analyses API"
-                     :description "Swaggerized Analyses API"}
-              :tags [{:name "badges" :description "The API for managing badges."}]
-              :consumes ["application/json"]
-              :produces ["application/json"]}}}
+(defapi app
+  (swagger-routes
+   {:ui "/docs"
+    :spec "/swagger.json"
+    :data {:info {:title "Analyses API"
+                  :description "Swaggerized Analyses API"}
+           :tags [{:name "badges" :description "The API for managing badges."}]
+           :consumes ["application/json"]
+           :produces ["application/json"]}})
+
+  (middleware
+    [add-user-to-context
+     wrap-query-params
+     wrap-lcase-params
+     wrap-keyword-params
+     [wrap-exceptions exception-handlers]
+     log-validation-errors]
 
     (context "/badges" []
       :tags ["badges"]
 
       (POST "/" []
-         :body         [submission AnalysisSubmission]
-         :query        [{:keys [user]} StandardUserQueryParams]
-         :return       Badge
-         :summary      "Adds a badge to the database"
-         :description  "Adds a badge and corresponding submission information to the
-         database. The username passed in should already exist. A new UUID will be
-         assigned and returned."
-         (ok (coerce! Badge (add-badge user submission))))
+        :body         [submission AnalysisSubmission]
+        :query        [{:keys [user]} StandardUserQueryParams]
+        :return       Badge
+        :summary      "Adds a badge to the database"
+        :description  "Adds a badge and corresponding submission information to the
+        database. The username passed in should already exist. A new UUID will be
+        assigned and returned."
+        (ok (coerce! Badge (add-badge user submission))))
 
       (GET "/:id" [id]
         :return       Badge
