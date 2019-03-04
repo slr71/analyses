@@ -60,7 +60,7 @@
   (let [obj (first (select submissions
                      (where {:id (uuidify id)})))]
     (if obj
-      (assoc obj :submission (parse-string (.getValue (:submission obj))))
+      (assoc obj :submission (parse-string (.getValue (:submission obj)) keyword))
       nil)))
 
 (defn update-submission
@@ -85,17 +85,16 @@
 (defn get-badge
   "Returns badge information. id is the UUID primary key for the badge."
   [id user]
-  (log/debug "")
-  (log/debug "id:" id "user:" user)
-  (log/debug "")
   (let [obj (first (select badges
-                           (with users)
-                           (with submissions)
-                           (fields :id  [:users.username :user] :submissions.submission)
-                           (where {:badges.id (uuidify id)
-                                   :user_id   (get-user user)})))]
+                     (with users)
+                     (with submissions)
+                     (fields :id  [:users.username :user] :submissions.submission)
+                     (where {:badges.id (uuidify id)
+                             :user_id   (get-user user)})))]
     (if obj
-      (assoc obj :submission (parse-string (.getValue (:submission obj))))
+      (assoc obj :submission (-> (:submission obj)
+                                 (.getValue)
+                                 (parse-string keyword)))
       nil)))
 
 (defn add-badge
@@ -104,7 +103,7 @@
     (insert badges (values {:id            new-uuid
                             :submission_id (add-submission submission)
                             :user_id       (get-user user)}))
-    new-uuid))
+    (get-badge new-uuid user)))
 
 (defn update-badge
   [id user submission]
