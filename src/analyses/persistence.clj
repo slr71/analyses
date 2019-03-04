@@ -106,12 +106,14 @@
     (get-badge new-uuid user)))
 
 (defn update-badge
-  [id user submission]
-  (korma.core/update badges
-    (korma.core/set-fields {:submission_id (add-submission submission)
-                            :user_id (get-user user)})
-    (where {:id (uuidify id)}))
-  (get-badge (uuidify id)))
+  [id user badge]
+  (let [user-id       (get-user (:user badge))
+        submission-id (add-submission (:submission badge))]
+    (korma.core/update badges
+      (korma.core/set-fields {:submission_id submission-id
+                              :user_id       user-id})
+      (where {:id (uuidify id)}))
+    (get-badge id user)))
 
 (defn delete-badge
   "Delete a badge. id is the UUID primary key for the badge."
