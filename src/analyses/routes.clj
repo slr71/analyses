@@ -71,6 +71,8 @@
      [wrap-exceptions exception-handlers]
      log-validation-errors]
 
+    (GET "/" [] (ok (str "yo what up\n")))
+
     (context "/badges" []
       :tags ["badges"]
 
