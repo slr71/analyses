@@ -77,14 +77,14 @@
       :tags ["badges"]
 
       (POST "/" []
-        :body         [submission AnalysisSubmission]
+        :body         [badge NewBadge]
         :query        [{:keys [user]} StandardUserQueryParams]
         :return       Badge
         :summary      "Adds a badge to the database"
         :description  "Adds a badge and corresponding submission information to the
         database. The username passed in should already exist. A new UUID will be
         assigned and returned."
-        (ok (coerce! Badge (add-badge user submission))))
+        (ok (coerce! Badge (add-badge user badge))))
 
       (GET "/:id" [id]
         :return       Badge
@@ -95,7 +95,7 @@
         (ok (coerce! Badge (get-badge id user))))
 
       (PUT "/:id" [id]
-        :body         [badge NewBadge]
+        :body         [badge UpdateBadge]
         :query        [{:keys [user]} StandardUserQueryParams]
         :return       Badge
         :summary      "Modifies an existing badge"

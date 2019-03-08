@@ -89,7 +89,7 @@
   (let [obj (first (select badges
                      (with users)
                      (with submissions)
-                     (fields :id  [:users.username :user] :submissions.submission)
+                     (fields :id  [:users.username :user] :name :submissions.submission)
                      (where {:badges.id (uuidify id)
                              :user_id   (get-user user)})))]
     (if obj
@@ -99,10 +99,11 @@
       (cxu/not-found {:id id :user user}))))
 
 (defn add-badge
-  [user submission]
+  [user badge]
   (let [new-uuid (UUID/randomUUID)]
     (insert badges (values {:id            new-uuid
-                            :submission_id (add-submission submission)
+                            :name          (:name badge)
+                            :submission_id (add-submission (:submission badge))
                             :user_id       (get-user user)}))
     (get-badge new-uuid user)))
 
@@ -114,6 +115,7 @@
           submission-id (add-submission (:submission badge))]
       (korma.core/update badges
                          (korma.core/set-fields {:submission_id submission-id
+                                                 :name          (:name badge)
                                                  :user_id       user-id})
                          (where {:id (uuidify id)}))
       (get-badge id user))))
