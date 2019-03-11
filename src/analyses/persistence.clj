@@ -17,7 +17,8 @@
             [analyses.config :as config]
             [kameleon.uuids :refer [uuidify]]
             [cheshire.core :refer [parse-string generate-string]]
-            [clojure-commons.exception-util :as cxu])
+            [clojure-commons.exception-util :as cxu]
+            [clojure-commons.core :refer [when-let*]])
   (:import [java.util UUID]))
 
 (declare users submissions badges)
@@ -107,17 +108,31 @@
                             :user_id       (get-user user)}))
     (get-badge new-uuid user)))
 
+(defn- get-unjoined-badge
+  [id user]
+  (first (select badges
+           (fields :id :submission_id :user_id)
+           (where {:badges.id (uuidify id)
+                   :user_id   (get-user user)}))))
+
+(defn- merge-submission
+  [badge-id user new-submission]
+  (when-let* [submission-id  (:submission_id (get-unjoined-badge badge-id user))
+              old-submission (:submission (get-submission submission-id))]
+    (merge old-submission new-submission)))
+
 (defn update-badge
   [id user badge]
   (if-not (first (select badges (where {:id (uuidify id)})))
     (cxu/not-found {:id id :user user})
-    (let [user-id       (get-user (:user badge))
-          submission-id (add-submission (:submission badge))]
+    (let [user-id       (get-user (or (:user badge) user))
+          submission-id (add-submission (merge-submission id user (:submission badge)))]
       (korma.core/update badges
-                         (korma.core/set-fields {:submission_id submission-id
-                                                 :name          (:name badge)
-                                                 :user_id       user-id})
-                         (where {:id (uuidify id)}))
+        (korma.core/set-fields
+         (merge {:submission_id submission-id
+                 :user_id       user-id}
+                (select-keys badge [:name])))
+        (where {:id (uuidify id)}))
       (get-badge id user))))
 
 (defn delete-badge
