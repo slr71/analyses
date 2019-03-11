@@ -94,7 +94,7 @@
         UUID, the name of the user that owns it, and the submission JSON"
         (ok (coerce! Badge (get-badge id user))))
 
-      (PUT "/:id" [id]
+      (PATCH "/:id" [id]
         :body         [badge UpdateBadge]
         :query        [{:keys [user]} StandardUserQueryParams]
         :return       Badge
