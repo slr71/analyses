@@ -164,3 +164,52 @@
     (log/debug (sql/format delete-sql))
     (exec delete-sql))
   {:id id})
+
+(defn get-all-quicklaunch-favorites
+  "Returns a list of quicklaunch favorites"
+  [user]
+  (let [user-id     (get-user user)
+        get-all-sql (-> (select :quick_launch_favorites.id
+                                :quick_launch_favorites.quick_launch_id
+                                [:users.username :user])
+                        (from :quick_launch_favorites)
+                        (join :quick_launches [:= :quick_launch_favorites.quick_launch_id :quick_launches.id]
+                              :users          [:= :quick_launch_favorites.user_id :users.id])
+                        (where [:= :quick_launch_favorites.user_id user-id]))]
+    (log/debug get-all-sql)
+    (query get-all-sql)))
+
+(defn get-quicklaunch-favorite
+  [user qlf-id]
+  (let [user-id (get-user user)
+        get-qlf-sql (-> (select :quick_launch_favorites.id
+                                :quick_launch_favorites.quick_launch_id
+                                [:users.username :user])
+                        (from :quick_launch_favorites)
+                        (join :quick_launches [:= :quick_launch_favorites.quick_launch_id :quick_launches.id]
+                              :users          [:= :quick_launch_favorites.user_id :users.id])
+                        (where [:= :quick_launch_favorites.user_id user-id]
+                               [:= :quick_launch_favorites.id (uuidify qlf-id)]))]
+    (log/debug get-qlf-sql)
+    (first (query get-qlf-sql))))
+
+(defn add-quicklaunch-favorite
+  [user quick-launch-id]
+  (let [new-uuid    (uuid)
+        user-id     (get-user user)
+        add-qlf-sql (-> (insert-into :quick_launch_favorites)
+                        (values [{:id              new-uuid
+                                  :quick_launch_id (uuidify quick-launch-id)
+                                  :user_id         user-id}]))]
+    (exec add-qlf-sql)
+    (get-quicklaunch-favorite user new-uuid)))
+
+(defn delete-quicklaunch-favorite
+  [user quick-launch-id]
+  (let [user-id (get-user user)
+        delete-qlf-sql (-> (delete-from :quick_launch_favorites)
+                           (where [:= :quick_launch_favorites.id (uuidify quick-launch-id)]
+                                  [:= :quick_launch_favorites.user_id user-id]))]
+    (log/debug (sql/format delete-qlf-sql))
+    (exec delete-qlf-sql)
+    {:id quick-launch-id}))
