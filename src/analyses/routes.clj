@@ -1,5 +1,5 @@
 (ns analyses.routes
-  (:use [common-swagger-api.schema.badges]
+  (:use [common-swagger-api.schema.quicklaunches]
         [common-swagger-api.schema :only [StandardUserQueryParams]])
   (:require [compojure.api.sweet :refer :all]
             [common-swagger-api.schema.apps :refer [AnalysisSubmission]]
@@ -16,7 +16,7 @@
             [schema.utils :as su]
             [service-logging.middleware :refer [log-validation-errors add-user-to-context]]
             [slingshot.slingshot :refer [throw+]]
-            [analyses.persistence :refer [add-badge get-badge update-badge delete-badge]])
+            [analyses.persistence :as persist])
   (:import [java.util UUID]))
 
 (s/defschema DeletionResponse
@@ -59,7 +59,7 @@
     :spec "/swagger.json"
     :data {:info {:title "Analyses API"
                   :description "Swaggerized Analyses API"}
-           :tags [{:name "badges" :description "The API for managing badges."}]
+           :tags [{:name "quicklaunches" :description "The API for managing quicklaunches."}]
            :consumes ["application/json"]
            :produces ["application/json"]}})
 
@@ -73,35 +73,35 @@
 
     (GET "/" [] (ok (str "yo what up\n")))
 
-    (context "/badges" []
-      :tags ["badges"]
+    (context "/quicklaunches" []
+      :tags ["quicklaunches"]
 
       (POST "/" []
-        :body         [badge NewBadge]
+        :body         [ql NewQuickLaunch]
         :query        [{:keys [user]} StandardUserQueryParams]
-        :return       Badge
+        :return       QuickLaunch
         :summary      "Adds a badge to the database"
         :description  "Adds a badge and corresponding submission information to the
         database. The username passed in should already exist. A new UUID will be
         assigned and returned."
-        (ok (coerce! Badge (add-badge user badge))))
+        (ok (coerce! QuickLaunch (persist/add-quicklaunch user ql))))
 
       (GET "/:id" [id]
-        :return       Badge
+        :return       QuickLaunch
         :query        [{:keys [user]} StandardUserQueryParams]
         :summary      "Gets badge information from the database"
         :description  "Gets the badge information from the database, including its
         UUID, the name of the user that owns it, and the submission JSON"
-        (ok (coerce! Badge (get-badge id user))))
+        (ok (coerce! QuickLaunch (persist/get-quicklaunch id user))))
 
       (PATCH "/:id" [id]
-        :body         [badge UpdateBadge]
+        :body         [uql UpdateQuickLaunch]
         :query        [{:keys [user]} StandardUserQueryParams]
-        :return       Badge
+        :return       QuickLaunch
         :summary      "Modifies an existing badge"
         :description  "Modifies an existing badge, allowing the caller to change
         owners and the contents of the submission JSON"
-        (ok (coerce! Badge (update-badge id user badge))))
+        (ok (coerce! QuickLaunch (persist/update-quicklaunch id user uql))))
 
       (DELETE "/:id" [id]
         :query        [{:keys [user]} StandardUserQueryParams]
@@ -110,4 +110,4 @@
         :description  "Deletes a badge from the database. Will returns a success
         even if called on a badge that has either already been deleted or never
         existed in the first place"
-        (ok (coerce! DeletionResponse (delete-badge id user)))))))
+        (ok (coerce! DeletionResponse (persist/delete-quicklaunch id user)))))))
