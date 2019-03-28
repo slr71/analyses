@@ -213,3 +213,53 @@
     (log/debug (sql/format delete-qlf-sql))
     (exec delete-qlf-sql)
     {:id quick-launch-id}))
+
+(defn get-quicklaunch-user-default
+  [user qlud-id]
+  (let [user-id      (get-user user)
+        get-qlud-sql (-> (select :qlud.id
+                                 [:users.username :user]
+                                 :qlud.quick_launch_id
+                                 :qlud.app_id)
+                         (from [:quick_launch_user_defaults :qlud])
+                         (join :users [:= :qlud.user_id :users.id])
+                         (where [:qlud.user_id user-id]
+                                [:qlud.id qlud-id]))]
+    (log/debug get-qlud-sql)
+    (first (query get-qlud-sql))))
+
+(defn add-quicklaunch-user-default
+  [user qlud]
+  (let [user-id      (get-user user)
+        new-uuid     (uuid)
+        add-qlud-sql (-> (insert-into :quick_launch_user_defaults)
+                         (values [{:id              new-uuid
+                                   :user_id         user-id
+                                   :quick_launch_id (:quick_launch_id qlud)
+                                   :app_id          (:app_id qlud)}]))]
+    (log/debug add-qlud-sql)
+    (exec add-qlud-sql)
+    (get-quicklaunch-user-default user qlud)))
+
+(defn update-quicklaunch-user-default
+  [id user qlud]
+  (if-not (first (exec (-> (select :*) (from :quick_launch_user_defaults) (where [:= :id (uuidify id)]))))
+    (cxu/not-found {:id id :user user})
+    (let [user-id         (get-user)
+          update-qlud-sql (-> (update :quick_launch_user_defaults)
+                              (sset (select-keys qlud [:app_id :quick_launch_id]))
+                              (where [:id      (uuidify id)
+                                      :user_id user-id]))]
+      (log/debug update-qlud-sql)
+      (exec update-qlud-sql)
+      (get-quicklaunch-user-default user id))))
+
+(defn delete-quicklaunch-user-default
+  [user id]
+  (let [user-id (get-user user)
+        delete-qlud-sql (-> (delete-from :quick_launch_user_defaults)
+                            (where [:= :id (uuidify id)]
+                                   [:= :user_id user-id]))]
+    (log/debug delete-qlud-sql)
+    (exec delete-qlud-sql)
+    {:id id}))
