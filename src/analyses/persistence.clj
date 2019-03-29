@@ -161,7 +161,9 @@
       (uuidify-entry [:app_id])
       (uuidify-entry [:id])
       (uuidify-entry [:creator])
-      (uuidify-entry [:submission_id])))
+      (uuidify-entry [:submission_id])
+      (uuidify-entry [:quick_launch_id])
+      (uuidify-entry [:user_id])))
 
 (defn update-quicklaunch
   [id user ql]
@@ -281,7 +283,7 @@
   [id user qlud]
   (if-not (first (exec (-> (select :*) (from :quick_launch_user_defaults) (where [:= :id (uuidify id)]))))
     (cxu/not-found {:id id :user user})
-    (let [user-id         (get-user)
+    (let [user-id         (get-user user)
           update-qlud-sql (-> (update :quick_launch_user_defaults)
                               (sset (select-keys qlud [:app_id :quick_launch_id]))
                               (where [:= :id      (uuidify id)]
@@ -297,6 +299,76 @@
         delete-qlud-sql (-> (delete-from :quick_launch_user_defaults)
                             (where [:= :id (uuidify id)]
                                    [:= :user_id user-id]))]
-    (log/debug delete-qlud-sql)
+    (log/debug (sql/format delete-qlud-sql))
     (exec delete-qlud-sql)
+    {:id id}))
+
+(defn get-quicklaunch-global-default
+  [user id]
+  (let [user-id (get-user user)
+        get-sql (-> (select :gd.id
+                            :gd.app_id
+                            :gd.quick_launch_id)
+                    (from [:quick_launch_global_defaults :gd])
+                    (join :quick_launches [:= :gd.quick_launch_id :quick_launches.id])
+                    (where [:= :gd.id (uuidify id)]
+                           [:= :quick_launches.creator user-id]))]
+    (log/debug (sql/format get-sql))
+    (first (query get-sql))))
+
+(defn get-all-quicklaunch-global-defaults
+  [user]
+  (let [user-id     (get-user user)
+        get-all-sql (-> (select :gd.id
+                                :gd.app_id
+                                :gd.quick_launch_id)
+                        (from [:quick_launch_global_defaults :gd])
+                        (join :quick_launches [:= :gd.quick_launch_id :quick_launches.id])
+                        (where [:= :quick_launches.creator user-id]))]
+    (log/debug (sql/format get-all-sql))
+    (query get-all-sql)))
+
+(defn add-quicklaunch-global-default
+  [user global-default]
+  (let [user-id  (get-user user)
+        new-uuid (uuid)
+        add-sql  (-> (insert-into :quick_launch_global_defaults)
+                     (values [{:id              new-uuid
+                               :app_id          (uuidify (:app_id global-default))
+                               :quick_launch_id (uuidify (:quick_launch_id global-default))}]))]
+    (log/debug (sql/format add-sql))
+    (exec add-sql)
+    (get-quicklaunch-global-default user new-uuid)))
+
+(defn update-quicklaunch-global-default
+  [id user global-default]
+  (let [user-id    (get-user user)
+        update-sql (-> (update :quick_launch_global_defaults)
+                       (sset (fix-uuids (select-keys global-default [:app_id :quick_launch_id])))
+                       (where [:= :quick_launch_global_defaults.id (uuidify id)]
+                              [:in :quick_launch_global_defaults.quick_launch_id
+                                   (-> (select :quick_launches.id)
+                                       (from :quick_launches)
+                                       (join :quick_launch_global_defaults
+                                             [:= :quick_launches.id
+                                                 :quick_launch_global_defaults.quick_launch_id])
+                                       (where [:= :quick_launches.creator user-id]))]))]
+    (log/debug (sql/format update-sql))
+    (exec update-sql)
+    (get-quicklaunch-global-default user id)))
+
+(defn delete-quicklaunch-global-default
+  [user id]
+  (let [user-id    (get-user user)
+        delete-sql (-> (delete-from :quick_launch_global_defaults)
+                       (where [:= :quick_launch_global_defaults.id (uuidify id)]
+                              [:in :quick_launch_global_defaults.quick_launch_id
+                               (-> (select :quick_launches.id)
+                                   (from :quick_launches)
+                                   (join :quick_launch_global_defaults
+                                         [:= :quick_launches.id
+                                          :quick_launch_global_defaults.quick_launch_id])
+                                   (where [:= :quick_launches.creator user-id]))]))]
+    (log/debug (sql/format delete-sql))
+    (exec delete-sql)
     {:id id}))
