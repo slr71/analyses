@@ -16,12 +16,14 @@
 
 (defapi app
   (swagger-routes
-   {:ui "/docs"
+   {:ui   "/docs"
     :spec "/swagger.json"
-    :data {:info {:title "Analyses API"
+    :data {:info {:title       "Analyses API"
                   :description "Swaggerized Analyses API"}
-           :tags [{:name "quicklaunches" :description "The API for managing quicklaunches."}
-                  {:name "quicklaunch-favorites" :description "The API for managing quicklaunch favorites."}]
+           :tags [{:name "quicklaunches"               :description "The API for managing quicklaunches."}
+                  {:name "quicklaunch-favorites"       :description "The API for managing quicklaunch favorites."}
+                  {:name "quicklaunch-user-defaults"   :description "The API for managing quicklaunch user defaults."}
+                  {:name "quicklaunch-global-defaults" :description "The API for managing quicklaunch global defaults."}]
            :consumes ["application/json"]
            :produces ["application/json"]}})
 
@@ -55,6 +57,13 @@
         :description  "Gets the Quick Launch information from the database, including its
         UUID, the name of the user that owns it, and the submission JSON"
         (ok (coerce! QuickLaunch (persist/get-quicklaunch id user))))
+
+      (GET "/" []
+        :query       [{:keys [user]} StandardUserQueryParams]
+        :return      [QuickLaunch]
+        :summary     "Get all of the Quick Launches for a user"
+        :description "Gets all of the Quick Launches for a user. Includes UUIDs"
+        (ok (coerce! [QuickLaunch] (persist/get-all-quicklaunches user))))
 
       (PATCH "/:id" [id]
         :body         [uql UpdateQuickLaunch]
@@ -110,4 +119,39 @@
         :description "Deletes a Quick Launch favorite. Does not delete the
         actual Quick Launch, just the entry that listed it as a favorite for the
         user"
-        (ok (coerce! DeletionResponse (persist/delete-quicklaunch-favorite user id)))))))
+        (ok (coerce! DeletionResponse (persist/delete-quicklaunch-favorite user id)))))
+
+    (context "/quicklaunch/defaults/user" []
+      :tags ["quicklaunch-user-defaults"]
+
+      (POST "/" []
+        :body  [ud NewQuickLaunchUserDefault]
+        :query [{:keys [user]} StandardUserQueryParams]
+        :return QuickLaunchUserDefault
+        :summary "Add a Quick Launch user default"
+        :description "Add a Quick Launch user defaults. A new UUID will be
+        assigned to the user default and will be returned in the response"
+        (ok (coerce! QuickLaunchUserDefault (persist/add-quicklaunch-user-default user ud))))
+
+      (GET "/:id" [id]
+        :query [{:keys [user]} StandardUserQueryParams]
+        :return QuickLaunchUserDefault
+        :summary "Get a Quick Launch user default"
+        :description "Get a Quick Launch user default"
+        (ok (coerce! QuickLaunchUserDefault (persist/get-quicklaunch-user-default user id))))
+
+      (GET "/" []
+        :query [{:keys [user]} StandardUserQueryParams]
+        :return [QuickLaunchUserDefault]
+        :summary "Get all of the Quick Launch user defaults for the logged in
+        user"
+        :description "Get all of the Quick Launch user defaults for the logged
+        in user"
+        (ok (coerce! [QuickLaunchUserDefault] (persist/get-all-quicklaunch-user-defaults user))))
+
+      (DELETE "/:id" [id]
+        :query [{:keys [user]} StandardUserQueryParams]
+        :return DeletionResponse
+        :summary "Delete the Quick Launch user defaults"
+        :description "Delete the Quick Launch user defaults"
+        (ok (coerce! DeletionResponse (persist/delete-quicklaunch-user-default user id)))))))

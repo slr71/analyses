@@ -104,6 +104,29 @@
                                  (parse-string keyword)))
       (cxu/not-found {:id id :creator user}))))
 
+(defn get-all-quicklaunches
+  [user]
+  (let [user-id     (get-user user)
+        get-all-sql (-> (select :quick_launches.id
+                                [:users.username :creator]
+                                :quick_launches.app_id
+                                :quick_launches.name
+                                :quick_launches.description
+                                :quick_launches.is_public
+                                :submissions.submission)
+                        (from :quick_launches)
+                        (join :users [:= :quick_launches.creator :users.id]
+                              :submissions [:= :quick_launches.submission_id :submissions.id])
+                        (where [:= :quick_launches.creator user-id]))
+        results     (query get-all-sql)]
+    (log/debug results)
+    (mapv
+     #(assoc %1 :submission (-> (:submission %1)
+                                (.getValue)
+                                (parse-string keyword)))
+     results)))
+
+
 (defn add-quicklaunch
   [user quicklaunch]
   (let [new-uuid   (uuid)
@@ -223,10 +246,23 @@
                                  :qlud.app_id)
                          (from [:quick_launch_user_defaults :qlud])
                          (join :users [:= :qlud.user_id :users.id])
-                         (where [:qlud.user_id user-id]
-                                [:qlud.id qlud-id]))]
+                         (where [:= :qlud.user_id user-id]
+                                [:= :qlud.id (uuidify qlud-id)]))]
     (log/debug get-qlud-sql)
     (first (query get-qlud-sql))))
+
+(defn get-all-quicklaunch-user-defaults
+  [user]
+  (let [user-id (get-user user)
+        all-qlud-sql (-> (select :qlud.id
+                                 [:users.username :user]
+                                 :qlud.quick_launch_id
+                                 :qlud.app_id)
+                         (from [:quick_launch_user_defaults :qlud])
+                         (join :users [:= :qlud.user_id :users.id])
+                         (where [:= :qlud.user_id user-id]))]
+    (log/debug all-qlud-sql)
+    (query all-qlud-sql)))
 
 (defn add-quicklaunch-user-default
   [user qlud]
@@ -235,11 +271,11 @@
         add-qlud-sql (-> (insert-into :quick_launch_user_defaults)
                          (values [{:id              new-uuid
                                    :user_id         user-id
-                                   :quick_launch_id (:quick_launch_id qlud)
-                                   :app_id          (:app_id qlud)}]))]
+                                   :quick_launch_id (uuidify (:quick_launch_id qlud))
+                                   :app_id          (uuidify (:app_id qlud))}]))]
     (log/debug add-qlud-sql)
     (exec add-qlud-sql)
-    (get-quicklaunch-user-default user qlud)))
+    (get-quicklaunch-user-default user new-uuid)))
 
 (defn update-quicklaunch-user-default
   [id user qlud]
@@ -248,8 +284,9 @@
     (let [user-id         (get-user)
           update-qlud-sql (-> (update :quick_launch_user_defaults)
                               (sset (select-keys qlud [:app_id :quick_launch_id]))
-                              (where [:id      (uuidify id)
-                                      :user_id user-id]))]
+                              (where [:= :id      (uuidify id)]
+                                     [:= :user_id user-id]))]
+
       (log/debug update-qlud-sql)
       (exec update-qlud-sql)
       (get-quicklaunch-user-default user id))))
