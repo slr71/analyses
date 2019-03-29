@@ -187,8 +187,8 @@
                        (where [:= :id (uuidify id)]
                               [:= :creator (get-user user)]))]
     (log/debug (sql/format delete-sql))
-    (exec delete-sql))
-  {:id id})
+    (exec delete-sql)
+    {:id id}))
 
 (defn get-all-quicklaunch-favorites
   "Returns a list of quicklaunch favorites"
@@ -202,7 +202,8 @@
                               :users          [:= :quick_launch_favorites.user_id :users.id])
                         (where [:= :quick_launch_favorites.user_id user-id]))]
     (log/debug get-all-sql)
-    (query get-all-sql)))
+    (or (query get-all-sql)
+        (cxu/not-found {:user user}))))
 
 (defn get-quicklaunch-favorite
   [user qlf-id]
@@ -216,7 +217,8 @@
                         (where [:= :quick_launch_favorites.user_id user-id]
                                [:= :quick_launch_favorites.id (uuidify qlf-id)]))]
     (log/debug get-qlf-sql)
-    (first (query get-qlf-sql))))
+    (or (first (query get-qlf-sql))
+        (cxu/not-found {:id id :user user}))))
 
 (defn add-quicklaunch-favorite
   [user quick-launch-id]
@@ -251,7 +253,8 @@
                          (where [:= :qlud.user_id user-id]
                                 [:= :qlud.id (uuidify qlud-id)]))]
     (log/debug get-qlud-sql)
-    (first (query get-qlud-sql))))
+    (or (first (query get-qlud-sql))
+        (cxu/not-found {:id id :user user}))))
 
 (defn get-all-quicklaunch-user-defaults
   [user]
@@ -314,7 +317,8 @@
                     (where [:= :gd.id (uuidify id)]
                            [:= :quick_launches.creator user-id]))]
     (log/debug (sql/format get-sql))
-    (first (query get-sql))))
+    (or (first (query get-sql))
+        (cxu/not-found {:id id :user user}))))
 
 (defn get-all-quicklaunch-global-defaults
   [user]
@@ -326,7 +330,8 @@
                         (join :quick_launches [:= :gd.quick_launch_id :quick_launches.id])
                         (where [:= :quick_launches.creator user-id]))]
     (log/debug (sql/format get-all-sql))
-    (query get-all-sql)))
+    (or (query get-all-sql)
+        (cxu/not-found {:user user}))))
 
 (defn add-quicklaunch-global-default
   [user global-default]
