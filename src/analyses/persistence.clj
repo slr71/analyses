@@ -218,7 +218,7 @@
                                [:= :quick_launch_favorites.id (uuidify qlf-id)]))]
     (log/debug get-qlf-sql)
     (or (first (query get-qlf-sql))
-        (cxu/not-found {:id id :user user}))))
+        (cxu/not-found {:id qlf-id :user user}))))
 
 (defn add-quicklaunch-favorite
   [user quick-launch-id]
@@ -254,7 +254,7 @@
                                 [:= :qlud.id (uuidify qlud-id)]))]
     (log/debug get-qlud-sql)
     (or (first (query get-qlud-sql))
-        (cxu/not-found {:id id :user user}))))
+        (cxu/not-found {:id qlud-id :user user}))))
 
 (defn get-all-quicklaunch-user-defaults
   [user]
