@@ -41,11 +41,12 @@
 (defn add-submission
   "Adds a new submission to the database."
   [submission]
-  (let [new-uuid (uuid)]
-    (log/debug
-     (exec (-> (insert-into :submissions)
-               (columns :id :submission)
-               (values [[new-uuid (sql/raw ["CAST ( '" (generate-string submission) "' AS JSON )"])]]))))
+  (let [new-uuid    (uuid)
+        add-sub-sql (-> (insert-into :submissions)
+                        (columns :id :submission)
+                        (values [[new-uuid (sql/raw ["CAST ( '" (generate-string submission) "' AS JSON )"])]]))]
+    (log/debug add-sub-sql)
+    (exec add-sub-sql)
     new-uuid))
 
 (defn get-submission
@@ -63,10 +64,11 @@
    submissions is the new state of the submission as a map. Adapted from
    similar code in the apps service."
   [id submission]
-  (exec (-> (update :submissions)
-            (sset {:submission (sql/raw ["CAST ( '" (generate-string submission) "' AS JSON )"])})
-            (where [:= :id (uuidify id)])))
-  (get-submission id))
+  (let [update-sql (-> (update :submissions)
+                       (sset {:submission (sql/raw ["CAST ( '" (generate-string submission) "' AS JSON )"])})
+                       (where [:= :id (uuidify id)]))]
+    (exec update-sql)
+    (get-submission id)))
 
 (defn delete-submission
   "Deletes a submission record. id is the UUID primary key for the submission."
