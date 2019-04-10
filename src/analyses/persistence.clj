@@ -128,6 +128,29 @@
                                 (parse-string keyword)))
      results)))
 
+(defn get-quicklaunches-by-app
+  [app-id user]
+  (let [user-id (get-user user)
+        get-sql (-> (select :quick_launches.id
+                            [:users.username :creator]
+                            :quick_launches.app_id
+                            :quick_launches.name
+                            :quick_launches.description
+                            :quick_launches.is_public
+                            :submissions.submission)
+                    (from :quick_launches)
+                    (join :users [:= :quick_launches.creator :users.id]
+                          :submissions [:= :quick_launches.submission_id :submissions.id])
+                    (where [:= :quick_launches.creator user-id]
+                           [:= :quick_launches.app_id app-id]))
+        results (query get-sql)]
+    (log/debug results)
+    (mapv
+     #(assoc %1 :submission (-> (:submission %1)
+                                (.getValue)
+                                (parse-string keyword)))
+     results)))
+
 
 (defn add-quicklaunch
   [user quicklaunch]

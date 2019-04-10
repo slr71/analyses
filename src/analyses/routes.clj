@@ -3,7 +3,7 @@
         [common-swagger-api.schema :only [StandardUserQueryParams]]
         [analyses.schema])
   (:require [compojure.api.sweet :refer :all]
-            [common-swagger-api.schema.apps :refer [AnalysisSubmission]]
+            [common-swagger-api.schema.apps :refer [AnalysisSubmission AppIdParam]]
             [clojure-commons.exception :refer [exception-handlers]]
             [clojure-commons.lcase-params :refer [wrap-lcase-params]]
             [clojure-commons.query-params :refer [wrap-query-params]]
@@ -205,4 +205,18 @@
         :return      DeletionResponse
         :summary     "Delete the Quick Launch global default"
         :description "Delete the Quick Launch global default"
-        (ok (coerce! DeletionResponse (persist/delete-quicklaunch-global-default user id)))))))
+        (ok (coerce! DeletionResponse (persist/delete-quicklaunch-global-default user id)))))
+
+    (context "/quicklaunch/apps" []
+      :tags ["quicklaunch-by-app"]
+
+      (context "/:id" []
+        :path-params [id :- AppIdParam]
+               
+        (GET "/" []
+          :query [{:keys [user]} StandardUserQueryParams]
+          :return [QuickLaunch]
+          :summary "Get Quick Launch by the app UUID"
+          :description "Returns a list of Quick Launches that the user can
+          access based on the app's UUID"
+          (ok (coerce! [QuickLaunch] (persist/get-quicklaunches-by-app id user))))))))
