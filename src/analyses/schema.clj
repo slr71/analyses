@@ -41,3 +41,5 @@
 
 (s/defschema DeletionResponse
   {:id (describe UUID "The UUID of the resource that was deleted")})
+
+(def QuickLaunchID (describe UUID "The UUID for a Quick Launch"))

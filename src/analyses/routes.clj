@@ -50,14 +50,6 @@
         assigned and returned."
         (ok (coerce! QuickLaunch (persist/add-quicklaunch user ql))))
 
-      (GET "/:id" [id]
-        :return       QuickLaunch
-        :query        [{:keys [user]} StandardUserQueryParams]
-        :summary      "Gets Quick Launch information from the database"
-        :description  "Gets the Quick Launch information from the database, including its
-        UUID, the name of the user that owns it, and the submission JSON"
-        (ok (coerce! QuickLaunch (persist/get-quicklaunch id user))))
-
       (GET "/" []
         :query       [{:keys [user]} StandardUserQueryParams]
         :return      [QuickLaunch]
@@ -65,23 +57,48 @@
         :description "Gets all of the Quick Launches for a user. Includes UUIDs"
         (ok (coerce! [QuickLaunch] (persist/get-all-quicklaunches user))))
 
-      (PATCH "/:id" [id]
-        :body         [uql UpdateQuickLaunch]
-        :query        [{:keys [user]} StandardUserQueryParams]
-        :return       QuickLaunch
-        :summary      "Modifies an existing Quick Launch"
-        :description  "Modifies an existing Quick Launch, allowing the caller to change
-        owners and the contents of the submission JSON"
-        (ok (coerce! QuickLaunch (persist/update-quicklaunch id user uql))))
+      (context "/apps" []
+        :tags ["quicklaunch-by-app"]
 
-      (DELETE "/:id" [id]
-        :query        [{:keys [user]} StandardUserQueryParams]
-        :return        DeletionResponse
-        :summary      "Deletes a Quick Launch"
-        :description  "Deletes a Quick Launch from the database. Will returns a success
-        even if called on a Quick Launch that has either already been deleted or never
-        existed in the first place"
-        (ok (coerce! DeletionResponse (persist/delete-quicklaunch id user)))))
+        (context "/:id" []
+          :path-params [id :- AppIdParam]
+
+          (GET "/" []
+            :query [{:keys [user]} StandardUserQueryParams]
+            :return [QuickLaunch]
+            :summary "Get Quick Launch by the app UUID"
+            :description "Returns a list of Quick Launches that the user can
+            access based on the app's UUID"
+            (ok (coerce! [QuickLaunch] (persist/get-quicklaunches-by-app id user))))))
+
+      (context "/:id" []
+        :path-params [id :- QuickLaunchID]
+
+        (GET "/" []
+          :return       QuickLaunch
+          :query        [{:keys [user]} StandardUserQueryParams]
+          :summary      "Gets Quick Launch information from the database"
+          :description  "Gets the Quick Launch information from the database, including its
+          UUID, the name of the user that owns it, and the submission JSON"
+          (ok (coerce! QuickLaunch (persist/get-quicklaunch id user))))
+
+        (PATCH "/" []
+          :body         [uql UpdateQuickLaunch]
+          :query        [{:keys [user]} StandardUserQueryParams]
+          :return       QuickLaunch
+          :summary      "Modifies an existing Quick Launch"
+          :description  "Modifies an existing Quick Launch, allowing the caller to change
+           owners and the contents of the submission JSON"
+          (ok (coerce! QuickLaunch (persist/update-quicklaunch id user uql))))
+
+        (DELETE "/" []
+          :query        [{:keys [user]} StandardUserQueryParams]
+          :return        DeletionResponse
+          :summary      "Deletes a Quick Launch"
+          :description  "Deletes a Quick Launch from the database. Will returns a success
+          even if called on a Quick Launch that has either already been deleted or never
+          existed in the first place"
+          (ok (coerce! DeletionResponse (persist/delete-quicklaunch id user))))))
 
     (context "/quicklaunch/favorites" []
       :tags ["quicklaunch-favorites"]
@@ -205,18 +222,4 @@
         :return      DeletionResponse
         :summary     "Delete the Quick Launch global default"
         :description "Delete the Quick Launch global default"
-        (ok (coerce! DeletionResponse (persist/delete-quicklaunch-global-default user id)))))
-
-    (context "/quicklaunch/apps" []
-      :tags ["quicklaunch-by-app"]
-
-      (context "/:id" []
-        :path-params [id :- AppIdParam]
-               
-        (GET "/" []
-          :query [{:keys [user]} StandardUserQueryParams]
-          :return [QuickLaunch]
-          :summary "Get Quick Launch by the app UUID"
-          :description "Returns a list of Quick Launches that the user can
-          access based on the app's UUID"
-          (ok (coerce! [QuickLaunch] (persist/get-quicklaunches-by-app id user))))))))
+        (ok (coerce! DeletionResponse (persist/delete-quicklaunch-global-default user id)))))))
