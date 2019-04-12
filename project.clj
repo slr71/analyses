@@ -16,10 +16,11 @@
                  [org.cyverse/common-cfg "2.8.1"]
                  [org.cyverse/common-swagger-api "2.10.3-SNAPSHOT"]
                  [org.flatland/ordered "1.5.7"]
-                 [org.cyverse/service-logging "2.8.0"]
+                 [org.cyverse/service-logging "2.8.1"]
                  [me.raynes/fs "1.4.6"]
                  [ring "1.7.1"]
                  [cheshire "5.8.1"]
+                 [slingshot "0.12.2"]
                  [proto-repl "0.3.1"]]
   :eastwood {:exclude-namespaces [apps.protocols :test-paths]
              :linters [:wrong-arity :wrong-ns-form :wrong-pre-post :wrong-tag :misplaced-docstrings]}

@@ -166,14 +166,14 @@
     (exec insert-sql)
     (get-quicklaunch new-uuid user)))
 
-(defn- get-unjoined-quicklaunch
+(defn get-unjoined-quicklaunch
   [id user]
   (first (query (-> (select :*)
                     (from :quick_launches)
                     (where [:= :id (uuidify id)]
                            [:= :creator (get-user user)])))))
 
-(defn- merge-submission
+(defn merge-submission
   [ql-id user new-submission]
   (when-let* [submission-id  (:submission_id (get-unjoined-quicklaunch ql-id user))
               old-submission (:submission (get-submission submission-id))]
