@@ -24,21 +24,24 @@
        (str))))
 
 (defn get-path-info
-  [user & {:keys [paths ids] :as params}]
-  (when (or (seq paths) (seq ids))
-    (let [body-map   (select-keys (merge {:ids ids} {:paths paths}) [:ids :paths])
-          url-params (select-keys params [:validation-behavior
-                                          :filter-include
-                                          :filter-exclude])]
-      (:body (http/post (data-info-url ["path-info"] user url-params)
-                        {:content-type :json
-                         :as           :json
-                         :form-params  body-map})))))
+  [user params]
+  (let [paths (:paths params)
+        ids   (:ids params)]
+    (when (or (seq paths) (seq ids))
+      (let [body-map   (select-keys (merge {:ids ids} {:paths paths}) [:ids :paths])
+            url-params (select-keys params [:validation-behavior
+                                            :filter-include
+                                            :filter-exclude])]
+        (:body (http/post (data-info-url ["path-info"] user url-params)
+                          {:content-type :json
+                           :as           :json
+                           :form-params  body-map}))))))
 
 (defn paths-publicly-accessible
   [paths]
   (try+
-   (get-path-info public-user {:paths (if (sequential? paths) paths [paths])})
+   (let [paths-map {:paths (if (sequential? paths) paths [paths])}]
+     (get-path-info public-user paths-map))
    (catch [:status 500] e
      (if (#{ERR_NOT_READABLE ERR_DOES_NOT_EXIST} (:error_code e))
        false
@@ -69,7 +72,7 @@
 
 (defn- validate-prop
   [config prop]
-  (when (contains? config :id)
+  (when (contains? config (keyword (:id prop)))
     (validate-prop-value config prop)))
 
 (defn- validate-app-props
@@ -79,8 +82,7 @@
 
 (defn- validate-app-group
   [config group]
-  (doseq [app-props (get-in group [:parameters])]
-    (validate-app-props config app-props)))
+  (validate-app-props config (get-in group [:parameters])))
 
 (defn- validate-app-groups
   [config groups]
