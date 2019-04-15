@@ -1,5 +1,6 @@
 (ns analyses.clients
   (:require [analyses.config :refer [data-info-base-uri apps-base-uri]]
+            [medley.core :as medley]
             [clj-http.client :as http]
             [cemerick.url :refer [url]]
             [clojure-commons.error-codes :refer :all]
@@ -24,14 +25,13 @@
        (str))))
 
 (defn get-path-info
-  [user params]
-  (let [paths (:paths params)
-        ids   (:ids params)]
+  [user {:keys [ids paths] :as params}]
+  (let [not-nil? (comp not nil?)]
     (when (or (seq paths) (seq ids))
-      (let [body-map   (select-keys (merge {:ids ids} {:paths paths}) [:ids :paths])
-            url-params (select-keys params [:validation-behavior
-                                            :filter-include
-                                            :filter-exclude])]
+      (let [body-map   (medley/filter-vals not-nil? (merge {:ids ids} {:paths paths}))
+            url-params (medley/filter-vals not-nil? (select-keys params [:validation-behavior
+                                                                         :filter-include
+                                                                         :filter-exclude]))]
         (:body (http/post (data-info-url ["path-info"] user url-params)
                           {:content-type :json
                            :as           :json
