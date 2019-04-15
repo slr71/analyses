@@ -11,7 +11,8 @@
             [ring.util.http-response :refer [ok]]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [service-logging.middleware :refer [log-validation-errors add-user-to-context]]
-            [analyses.persistence :as persist])
+            [analyses.persistence :as persist]
+            [analyses.controllers :as ctlr])
   (:import [java.util UUID]))
 
 (defapi app
@@ -48,7 +49,7 @@
         :description  "Adds a Quick Launch and corresponding submission information to the
         database. The username passed in should already exist. A new UUID will be
         assigned and returned."
-        (ok (coerce! QuickLaunch (persist/add-quicklaunch user ql))))
+        (ok (coerce! QuickLaunch (ctlr/add-quicklaunch user ql))))
 
       (GET "/" []
         :query       [{:keys [user]} StandardUserQueryParams]
@@ -89,7 +90,7 @@
           :summary      "Modifies an existing Quick Launch"
           :description  "Modifies an existing Quick Launch, allowing the caller to change
            owners and the contents of the submission JSON"
-          (ok (coerce! QuickLaunch (persist/update-quicklaunch id user uql))))
+          (ok (coerce! QuickLaunch (ctlr/update-quicklaunch id user uql))))
 
         (DELETE "/" []
           :query        [{:keys [user]} StandardUserQueryParams]

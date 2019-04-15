@@ -66,6 +66,16 @@
   [props config-valid configs]
   "analyses.db.password" "notprod")
 
+(cc/defprop-optstr data-info-base-uri
+  "The base URI for the data-info service"
+  [props config-valid configs]
+  "analyses.data-info.base-uri" "http://data-info")
+
+(cc/defprop-optstr apps-base-uri
+  "The base URI for the apps service"
+  [props config-valid configs]
+  "analyses.apps.base-uri" "http://apps")
+
 (defn- validate-config
   "Validates the configuration settings after they've been loaded."
   []
