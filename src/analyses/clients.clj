@@ -75,20 +75,51 @@
   (when (contains? config (keyword (:id prop)))
     (validate-prop-value config prop)))
 
+(defn- update-prop
+  [config prop]
+  (let [id        (keyword (:id prop))
+        get-value (if (input? prop)
+                    (constantly {:path (config id)})
+                    #(config id))]
+    (if (contains? config id)
+      (let [prop-value (get-value)]
+        (assoc prop
+               :value        prop-value
+               :defaultValue prop-value))
+      prop)))
+
 (defn- validate-app-props
   [config props]
   (doseq [a-prop props]
     (validate-prop config a-prop)))
 
+(defn- update-app-props
+  [config props]
+  (map (partial update-prop config) props))
+
 (defn- validate-app-group
   [config group]
   (validate-app-props config (get-in group [:parameters])))
+
+(defn- update-app-group
+  [config group]
+  (update-in group [:parameters] (partial update-app-props config)))
 
 (defn- validate-app-groups
   [config groups]
   (doseq [a-group groups]
     (validate-app-group config a-group)))
 
+(defn- update-app-groups
+  [config groups]
+  (map (partial update-app-group config) groups))
+
 (defn validate-submission
   [submission app]
   (validate-app-groups (:config submission) (:groups app)))
+
+(defn quick-launch-app-info
+  [submission app system-id]
+  (update-in (assoc app :debug (:debug submission false))
+             [:groups]
+             (partial update-app-groups (:config submission))))

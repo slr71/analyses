@@ -3,7 +3,7 @@
         [common-swagger-api.schema :only [StandardUserQueryParams]]
         [analyses.schema])
   (:require [compojure.api.sweet :refer :all]
-            [common-swagger-api.schema.apps :refer [AnalysisSubmission AppIdParam]]
+            [common-swagger-api.schema.apps :refer [AnalysisSubmission AppIdParam AppJobView]]
             [clojure-commons.exception :refer [exception-handlers]]
             [clojure-commons.lcase-params :refer [wrap-lcase-params]]
             [clojure-commons.query-params :refer [wrap-query-params]]
@@ -94,12 +94,20 @@
 
         (DELETE "/" []
           :query        [{:keys [user]} StandardUserQueryParams]
-          :return        DeletionResponse
+          :return       DeletionResponse
           :summary      "Deletes a Quick Launch"
           :description  "Deletes a Quick Launch from the database. Will returns a success
           even if called on a Quick Launch that has either already been deleted or never
           existed in the first place"
-          (ok (coerce! DeletionResponse (persist/delete-quicklaunch id user))))))
+          (ok (coerce! DeletionResponse (persist/delete-quicklaunch id user))))
+
+        (GET "/app-info" []
+          :query        [{:keys [user]} StandardUserQueryParams]
+          :return       AppJobView
+          :summary      "Returns the app info needed to create and populate the app launcher in the UI"
+          :description  "Returns the app info needed to create and populate the app launcher in the UI.
+          Populates the parameters with the values from the submission stored for the quick launch"
+          (ok (coerce! AppJobView (ctlr/quick-launch-app-info id user))))))
 
     (context "/quicklaunch/favorites" []
       :tags ["quicklaunch-favorites"]
