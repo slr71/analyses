@@ -12,7 +12,7 @@
    (apps-url components {}))
   ([components username query]
    (-> (apply url (apps-base-uri) components)
-       (assoc :query (assoc query :user username))
+       (assoc :query (assoc query :user (clojure.string/replace username "@iplantcollaborative.org" "")))
        (str))))
 
 (defn data-info-url
