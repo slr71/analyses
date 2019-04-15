@@ -5,7 +5,7 @@
 (defn add-quicklaunch
   [user quicklaunch]
   (when (:is_public quicklaunch)
-    (clients/validate-submission (:submission quicklaunch) (clients/get-app (:app_id quicklaunch))))
+    (clients/validate-submission (:submission quicklaunch) (clients/get-app user "de" (:app_id quicklaunch))))
   (persist/add-quicklaunch user quicklaunch))
 
 (defn update-quicklaunch
