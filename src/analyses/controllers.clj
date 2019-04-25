@@ -20,7 +20,6 @@
         submission (if (contains? quicklaunch :submission)
                      (persist/merge-submission id user (:submission quicklaunch))
                      (:submission (persist/get-submission (:submission_id (persist/get-unjoined-quicklaunch id user)))))]
-    (println "asdfasdfadsfadsfadsfadsfadsfadsfadsfadsfadsfadsf " submission)
     (clients/validate-submission
      {:quicklaunch (assoc ql-merged :submission submission)
       :app         app
