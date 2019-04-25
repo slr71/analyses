@@ -99,7 +99,8 @@
                               (join :users       [:= :quick_launches.creator :users.id]
                                     :submissions [:= :quick_launches.submission_id :submissions.id])
                               (where [:= :quick_launches.id (uuidify id)]
-                                     [:= :quick_launches.creator user-id]))))]
+                                     [:or [:= :quick_launches.creator user-id]
+                                          [:= :quick_launches.is_public true]]))))]
     (if obj
       (assoc obj :submission (-> (:submission obj)
                                  (.getValue)
@@ -119,7 +120,9 @@
                         (from :quick_launches)
                         (join :users [:= :quick_launches.creator :users.id]
                               :submissions [:= :quick_launches.submission_id :submissions.id])
-                        (where [:= :quick_launches.creator user-id]))
+                        (where [:or [:= :quick_launches.creator user-id]
+                                    [:= :quick_launches.is_public true]]))
+
         results     (query get-all-sql)]
     (log/debug results)
     (mapv
@@ -141,7 +144,8 @@
                     (from :quick_launches)
                     (join :users [:= :quick_launches.creator :users.id]
                           :submissions [:= :quick_launches.submission_id :submissions.id])
-                    (where [:= :quick_launches.creator user-id]
+                    (where [:or [:= :quick_launches.creator user-id]
+                                [:= :quick_launches.is_public true]]
                            [:= :quick_launches.app_id app-id]))
         results (query get-sql)]
     (log/debug results)
@@ -190,9 +194,16 @@
       (uuidify-entry [:quick_launch_id])
       (uuidify-entry [:user_id])))
 
+(defn- ql-exists?
+  [id user]
+  (not (nil? (first (exec (-> (select :*)
+                              (from :quick_launches)
+                              (where [:= :id (uuidify id)]
+                                     [:= :creator (uuidify (get-user user))])))))))
+
 (defn update-quicklaunch
   [id user ql]
-  (if-not (first (exec (-> (select :*) (from :quick_launches) (where [:= :id (uuidify id)]))))
+  (if-not (ql-exists? id user)
     (cxu/not-found {:id id :creator user})
     (let [user-id       (get-user (or (:creator ql) user))
           submission-id (add-submission (merge-submission id user (:submission ql)))
@@ -201,7 +212,9 @@
                                           (select-keys ql [:name :description :app_id :is_public])))
           update-sql    (-> (update :quick_launches)
                             (sset update-map)
-                            (where [:= :id (uuidify id)]))]
+                            (where [:= :id      (uuidify id)]
+                                   [:= :creator (get-user user)]))]
+
       (exec update-sql)
       (get-quicklaunch id user))))
 
