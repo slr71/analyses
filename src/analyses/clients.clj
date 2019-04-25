@@ -106,9 +106,6 @@
    {:keys [id] :as prop}]
   (let [value (config (keyword id))
         u     (if is_public public-user user)]
-    (println "ppppppppppppppppppppppppppppppppppp" prop)
-    (println "ppppppppppppppppppppppppppppppppppp" u)
-    (println "ppppppppppppppppppppppppppppppppppp" value)
     (if (input? prop)
       (if-not (paths-accessible-by value u)
         (throw+ {:error_code ERR_NOT_READABLE :user u :path value})))))
@@ -122,9 +119,6 @@
     {{:keys [config]} :submission} :quicklaunch
     :as ql-info}]
   (let [props (mapcat #(get-in %1 [:parameters]) groups)]
-    (println "ppppppppppppppppppppppppppppppppppp" props)
-    (println "ppppppppppppppppppppppppppppppppppp" config)
     (doseq [prop props]
-
       (when (contains? config (keyword (:id prop)))
         (validate-prop-value ql-info prop)))))
