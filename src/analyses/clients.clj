@@ -21,7 +21,7 @@
    (data-info-url components {}))
   ([components username query]
    (-> (apply url (data-info-base-uri) components)
-       (assoc :query (assoc query :user username))
+       (assoc :query (assoc query :user (clojure.string/replace username "@iplantcollaborative.org" "")))
        (str))))
 
 (defn get-path-info
@@ -37,19 +37,23 @@
                            :as           :json
                            :form-params  body-map}))))))
 
-(defn paths-publicly-accessible
-  [paths]
-  (try+
-   (let [paths-map {:paths (if (sequential? paths) paths [paths])}]
-     (get-path-info public-user paths-map))
-   (catch [:status 500] e
-     (if (#{ERR_NOT_READABLE ERR_DOES_NOT_EXIST} (:error_code e))
-       false
-       (throw+)))))
+(defn paths-accessible-by
+  ([paths]
+   (paths-accessible-by paths public-user))
+  ([paths user]
+   (try+
+    (let [paths-map {:paths (if (sequential? paths) paths [paths])}]
+      (get-path-info user paths-map))
+    (catch [:status 500] e
+      (if (#{ERR_NOT_READABLE ERR_DOES_NOT_EXIST} (:error_code e))
+        false
+        (throw+))))))
 
 (defn get-app
   [user system-id app-id]
-  (:body (http/get (apps-url ["apps" system-id app-id] user {}) {:as :json})))
+  (let [u (apps-url ["apps" system-id app-id] user {})]
+    (println u)
+    (:body (http/get (apps-url ["apps" system-id app-id] user {}) {:as :json}))))
 
 (def ^:private input-multiplicities
   {"FileInput"         "single"
@@ -62,18 +66,6 @@
 (defn- input?
   [{:keys [type]}]
   (input-types type))
-
-(defn- validate-prop-value
-  [config {:keys [id] :as prop}]
-  (let [value (config (keyword id))]
-    (if (input? prop)
-      (if-not (paths-publicly-accessible value)
-        (throw+ {:error_code ERR_NOT_READABLE :user public-user :path value})))))
-
-(defn- validate-prop
-  [config prop]
-  (when (contains? config (keyword (:id prop)))
-    (validate-prop-value config prop)))
 
 (defn- update-prop
   [config prop]
@@ -88,38 +80,51 @@
                :defaultValue prop-value))
       prop)))
 
-(defn- validate-app-props
-  [config props]
-  (doseq [a-prop props]
-    (validate-prop config a-prop)))
-
 (defn- update-app-props
   [config props]
   (map (partial update-prop config) props))
-
-(defn- validate-app-group
-  [config group]
-  (validate-app-props config (get-in group [:parameters])))
 
 (defn- update-app-group
   [config group]
   (update-in group [:parameters] (partial update-app-props config)))
 
-(defn- validate-app-groups
-  [config groups]
-  (doseq [a-group groups]
-    (validate-app-group config a-group)))
-
 (defn- update-app-groups
   [config groups]
   (map (partial update-app-group config) groups))
-
-(defn validate-submission
-  [submission app]
-  (validate-app-groups (:config submission) (:groups app)))
 
 (defn quick-launch-app-info
   [submission app system-id]
   (update-in (assoc app :debug (:debug submission false))
              [:groups]
              (partial update-app-groups (:config submission))))
+
+(defn- validate-prop-value
+  [{{:keys [is_public] {:keys [config]} :submission} :quicklaunch
+    :keys [user]
+    :as ql-info}
+
+   {:keys [id] :as prop}]
+  (let [value (config (keyword id))
+        u     (if is_public public-user user)]
+    (println "ppppppppppppppppppppppppppppppppppp" prop)
+    (println "ppppppppppppppppppppppppppppppppppp" u)
+    (println "ppppppppppppppppppppppppppppppppppp" value)
+    (if (input? prop)
+      (if-not (paths-accessible-by value u)
+        (throw+ {:error_code ERR_NOT_READABLE :user u :path value})))))
+
+(defn validate-submission
+  "The map passed in is in the format {:quicklaunch {}
+                                       :app {}
+                                       :system-id \"\"
+                                       :user \"\"}"
+  [{{:keys [groups]} :app
+    {{:keys [config]} :submission} :quicklaunch
+    :as ql-info}]
+  (let [props (mapcat #(get-in %1 [:parameters]) groups)]
+    (println "ppppppppppppppppppppppppppppppppppp" props)
+    (println "ppppppppppppppppppppppppppppppppppp" config)
+    (doseq [prop props]
+
+      (when (contains? config (keyword (:id prop)))
+        (validate-prop-value ql-info prop)))))

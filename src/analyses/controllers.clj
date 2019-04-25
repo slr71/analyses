@@ -6,15 +6,26 @@
 
 (defn add-quicklaunch
   [user quicklaunch]
-  (clients/validate-submission (:submission quicklaunch) (clients/get-app user system-id (:app_id quicklaunch)))
+  (clients/validate-submission
+   {:quicklaunch quicklaunch
+    :app         (clients/get-app user system-id (:app_id quicklaunch))
+    :system-id   system-id
+    :user        user})
   (persist/add-quicklaunch user quicklaunch))
 
 (defn update-quicklaunch
   [id user quicklaunch]
-  (let [app (clients/get-app user system-id (:app_id quicklaunch))]
-    (if (contains? quicklaunch :submission)
-      (clients/validate-submission (persist/merge-submission id user (:submission quicklaunch)) app)
-      (clients/validate-submission (persist/get-submission (:submission_id (persist/get-unjoined-quicklaunch id user))) app))
+  (let [ql-merged  (merge (persist/get-quicklaunch id user) quicklaunch)
+        app        (clients/get-app user system-id (:app_id ql-merged))
+        submission (if (contains? quicklaunch :submission)
+                     (persist/merge-submission id user (:submission quicklaunch))
+                     (:submission (persist/get-submission (:submission_id (persist/get-unjoined-quicklaunch id user)))))]
+    (println "asdfasdfadsfadsfadsfadsfadsfadsfadsfadsfadsfadsf " submission)
+    (clients/validate-submission
+     {:quicklaunch (assoc ql-merged :submission submission)
+      :app         app
+      :system-id   system-id
+      :user        user})
     (persist/update-quicklaunch id user quicklaunch)))
 
 (defn quick-launch-app-info
