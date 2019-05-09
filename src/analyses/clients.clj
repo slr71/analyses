@@ -42,8 +42,11 @@
    (paths-accessible-by paths public-user))
   ([paths user]
    (try+
-    (let [paths-map {:paths (if (sequential? paths) paths [paths])}]
-      (get-path-info user paths-map))
+    (let [normalized-paths (if (sequential? paths) paths [paths])
+          paths-map        {:paths normalized-paths}]
+      (if (pos? (count normalized-paths))
+        (get-path-info user paths-map)
+        true)) ;; no paths to validate, so everything is fine
     (catch [:status 500] e
       (if (#{ERR_NOT_READABLE ERR_DOES_NOT_EXIST} (:error_code e))
         false
