@@ -3,7 +3,8 @@
         [common-swagger-api.schema :only [StandardUserQueryParams]]
         [analyses.schema])
   (:require [compojure.api.sweet :refer :all]
-            [common-swagger-api.schema.apps :refer [AnalysisSubmission AppIdParam AppJobView]]
+            [common-swagger-api.schema.apps :refer [AppIdParam AppJobView]]
+            [common-swagger-api.schema.analyses :refer [AnalysisSubmission]]
             [clojure-commons.exception :refer [exception-handlers]]
             [clojure-commons.lcase-params :refer [wrap-lcase-params]]
             [clojure-commons.query-params :refer [wrap-query-params]]
