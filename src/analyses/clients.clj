@@ -9,20 +9,16 @@
 (def public-user "public")
 
 (defn apps-url
-  ([components]
-   (apps-url components {}))
-  ([components username query]
-   (-> (apply url (apps-base-uri) components)
-       (assoc :query (assoc query :user (clojure.string/replace username "@iplantcollaborative.org" "")))
-       (str))))
+  [components username query]
+  (-> (apply url (apps-base-uri) components)
+      (assoc :query (assoc query :user (clojure.string/replace username "@iplantcollaborative.org" "")))
+      (str)))
 
 (defn data-info-url
-  ([components]
-   (data-info-url components {}))
-  ([components username query]
-   (-> (apply url (data-info-base-uri) components)
-       (assoc :query (assoc query :user (clojure.string/replace username "@iplantcollaborative.org" "")))
-       (str))))
+  [components username query]
+  (-> (apply url (data-info-base-uri) components)
+      (assoc :query (assoc query :user (clojure.string/replace username "@iplantcollaborative.org" "")))
+      (str)))
 
 (defn get-path-info
   [user {:keys [ids paths] :as params}]
