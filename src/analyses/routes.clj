@@ -1,20 +1,28 @@
 (ns analyses.routes
   (:use [common-swagger-api.schema.quicklaunches]
         [common-swagger-api.schema :only [StandardUserQueryParams]]
+        [analyses.routes.settings :only [analysis-settings-routes]]
         [analyses.schema])
   (:require [compojure.api.sweet :refer :all]
             [common-swagger-api.schema.apps :refer [AppIdParam AppJobView]]
             [common-swagger-api.schema.analyses :refer [AnalysisSubmission]]
+            [cheshire.core :as cheshire]
             [clojure-commons.exception :refer [exception-handlers]]
             [clojure-commons.lcase-params :refer [wrap-lcase-params]]
             [clojure-commons.query-params :refer [wrap-query-params]]
             [compojure.api.middleware :refer [wrap-exceptions]]
+            [compojure.route :as route]
             [ring.util.http-response :refer [ok]]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [service-logging.middleware :refer [log-validation-errors add-user-to-context]]
             [analyses.persistence :as persist]
             [analyses.controllers :as ctlr])
   (:import [java.util UUID]))
+
+(defn unrecognized-path-response
+  "Builds the response to send for an unrecognized service path."
+  []
+  (cheshire/encode {:reason "unrecognized service path"}))
 
 (defapi app
   (swagger-routes
@@ -25,7 +33,8 @@
            :tags [{:name "quicklaunches"               :description "The API for managing quicklaunches."}
                   {:name "quicklaunch-favorites"       :description "The API for managing quicklaunch favorites."}
                   {:name "quicklaunch-user-defaults"   :description "The API for managing quicklaunch user defaults."}
-                  {:name "quicklaunch-global-defaults" :description "The API for managing quicklaunch global defaults."}]
+                  {:name "quicklaunch-global-defaults" :description "The API for managing quicklaunch global defaults."}
+                  {:name "settings"                    :description "The API for managing analysis settings."}]
            :consumes ["application/json"]
            :produces ["application/json"]}})
 
@@ -232,4 +241,10 @@
         :return      DeletionResponse
         :summary     "Delete the Quick Launch global default"
         :description "Delete the Quick Launch global default"
-        (ok (coerce! DeletionResponse (persist/delete-quicklaunch-global-default user id)))))))
+        (ok (coerce! DeletionResponse (persist/delete-quicklaunch-global-default user id)))))
+
+    (context "/settings" []
+      :tags ["settings"]
+      analysis-settings-routes)
+
+    (undocumented (route/not-found (unrecognized-path-response)))))

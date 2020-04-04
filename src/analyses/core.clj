@@ -6,7 +6,7 @@
             [me.raynes.fs :as fs]
             [analyses.routes :as routes]
             [analyses.config :as config]
-            [analyses.persistence :as persist]
+            [analyses.persistence.common :as common-persist]
             [service-logging.thread-context :as tc]))
 
 (defn cli-options
@@ -31,6 +31,6 @@
       (when-not (fs/readable? (:config options))
         (ccli/exit 1 "The config file is not readable."))
       (config/load-config-from-file (:config options))
-      (persist/define-database)
+      (common-persist/define-database)
       (http/with-connection-pool {:timeout 5 :threads 10 :insecure? false :default-per-route 10}
         (run-jetty)))))
