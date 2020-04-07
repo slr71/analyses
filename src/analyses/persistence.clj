@@ -1,42 +1,14 @@
 (ns analyses.persistence
   (:require [honeysql.core :as sql]
             [honeysql.helpers :refer :all :as helpers]
-            [clojure.java.jdbc :as jdbc]
             [clojure.tools.logging :as log]
             [analyses.config :as config]
+            [analyses.persistence.common :refer [query exec]]
             [analyses.uuids :refer [uuidify uuid uuidify-entry]]
             [cheshire.core :refer [parse-string generate-string]]
             [clojure-commons.exception-util :as cxu]
             [clojure-commons.core :refer [when-let*]])
   (:import [java.util UUID]))
-
-(defn- create-db-spec
-  "Creates the database connection spec to use when accessing the database
-   using Korma."
-  []
-  {:dbtype   (config/db-subprotocol)
-   :dbname   (config/db-name)
-   :host     (config/db-host)
-   :port     (config/db-port)
-   :ssl      false
-   :user     (config/db-user)
-   :password (config/db-password)})
-
-(def de (ref nil))
-
-(defn define-database
-  "Defines the database connection to use from within Clojure."
-  []
-  (dosync (ref-set de (create-db-spec))))
-
-(defn- query
-  [sqlmap]
-  (jdbc/query (deref de) (sql/format sqlmap)))
-
-(defn- exec
-  [sqlmap]
-  (jdbc/with-db-transaction [tx (deref de)]
-    (jdbc/execute! tx (sql/format sqlmap))))
 
 (defn add-submission
   "Adds a new submission to the database."
