@@ -34,6 +34,6 @@
              :uberjar {:aot :all}}
   :main ^:skip-aot analyses.core
   :ring {:handler analyses.routes/app
-         :init analyses.core/load-config-from-file
+         :init analyses.core/init
          :port 31327}
   :repl-options {:init-ns analyses.core})

@@ -101,14 +101,6 @@
   (let [f (fs/file filename)]
     (when (.isFile f) (.getPath f))))
 
-(defn- classpath-file
-  [filename]
-  (-> (Thread/currentThread)
-      (.getContextClassLoader)
-      (.findResource filename)
-      (.toURI)
-      (fs/file)))
-
 (defn- no-configuration-found
   [filename]
   (throw (RuntimeException. (str "configuration file " filename " not found"))))
@@ -118,12 +110,9 @@
   (let [conf-file "analyses.properties"]
     (or (iplant-conf-dir-file conf-file)
         (cwd-file conf-file)
-        (classpath-file conf-file)
         (no-configuration-found conf-file))))
 
 (defn load-config-from-file
   "Loads the configuration settings from a properties file."
-  ([]
-   (load-config-from-file (find-config-file)))
-  ([cfg-path]
-   (load-and-validate-config-file cfg-path)))
+  [& [cfg-path]]
+  (load-and-validate-config-file (or cfg-path (find-config-file))))
