@@ -14,7 +14,7 @@
                  [org.cyverse/clojure-commons "3.0.5"]
                  [org.cyverse/common-cli "2.8.1"]
                  [org.cyverse/common-cfg "2.8.1"]
-                 [org.cyverse/common-swagger-api "3.0.1"]
+                 [org.cyverse/common-swagger-api "3.0.7"]
                  [org.flatland/ordered "1.5.7"]
                  [org.cyverse/service-logging "2.8.2"]
                  [me.raynes/fs "1.4.6"]
@@ -34,6 +34,6 @@
              :uberjar {:aot :all}}
   :main ^:skip-aot analyses.core
   :ring {:handler analyses.routes/app
-         :init analyses.core/load-config-from-file
+         :init analyses.core/init
          :port 31327}
   :repl-options {:init-ns analyses.core})

@@ -22,6 +22,10 @@
   (log/warn "Started listening on" (config/listen-port))
   ((eval 'ring.adapter.jetty/run-jetty) routes/app {:port (config/listen-port)}))
 
+(defn init [& [options]]
+  (config/load-config-from-file (:config options))
+  (common-persist/define-database))
+
 (defn -main
   [& args]
   (tc/with-logging-context config/svc-info
@@ -30,7 +34,6 @@
         (ccli/exit 1 (str "The config file does not exist.")))
       (when-not (fs/readable? (:config options))
         (ccli/exit 1 "The config file is not readable."))
-      (config/load-config-from-file (:config options))
-      (common-persist/define-database)
+      (init options)
       (http/with-connection-pool {:timeout 5 :threads 10 :insecure? false :default-per-route 10}
         (run-jetty)))))
