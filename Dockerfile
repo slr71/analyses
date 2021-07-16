@@ -1,4 +1,4 @@
-FROM clojure:lein-alpine
+FROM clojure:openjdk-17-lein-alpine
 
 WORKDIR /usr/src/app
 
@@ -11,7 +11,7 @@ COPY conf/main/logback.xml /usr/src/app/
 COPY project.clj /usr/src/app/
 RUN lein deps
 
-RUN ln -s "/usr/bin/java" "/bin/analyses"
+RUN ln -s "/opt/openjdk-17/bin/java" "/bin/analyses"
 
 COPY . /usr/src/app
 
