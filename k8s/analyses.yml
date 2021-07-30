@@ -42,7 +42,7 @@ spec:
                 path: analyses.properties
       containers:
       - name: analyses
-        image: discoenv/analyses
+        image: harbor.cyverse.org/de/analyses
         args:
           - --config
           - /etc/iplant/de/analyses.properties
