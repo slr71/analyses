@@ -1,5 +1,5 @@
 (ns analyses.clients
-  (:require [analyses.config :refer [data-info-base-uri apps-base-uri]]
+  (:require [analyses.config :refer [data-info-base-uri apps-base-uri username-suffix]]
             [medley.core :as medley]
             [clj-http.client :as http]
             [cemerick.url :refer [url]]
@@ -11,13 +11,13 @@
 (defn apps-url
   [components username query]
   (-> (apply url (apps-base-uri) components)
-      (assoc :query (assoc query :user (clojure.string/replace username "@iplantcollaborative.org" "")))
+      (assoc :query (assoc query :user (clojure.string/replace username (username-suffix) "")))
       (str)))
 
 (defn data-info-url
   [components username query]
   (-> (apply url (data-info-base-uri) components)
-      (assoc :query (assoc query :user (clojure.string/replace username "@iplantcollaborative.org" "")))
+      (assoc :query (assoc query :user (clojure.string/replace username (username-suffix) "")))
       (str)))
 
 (defn get-path-info
