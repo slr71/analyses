@@ -167,6 +167,7 @@
   [update-map]
   (-> update-map
       (uuidify-entry [:app_id])
+      (uuidify-entry [:app_version_id])
       (uuidify-entry [:id])
       (uuidify-entry [:creator])
       (uuidify-entry [:submission_id])
@@ -188,7 +189,11 @@
           submission-id (add-submission (merge-submission id user (:submission ql)))
           update-map    (fix-uuids (merge {:submission_id submission-id
                                            :creator       user-id}
-                                          (select-keys ql [:name :description :app_id :is_public])))
+                                          (select-keys ql [:name
+                                                           :description
+                                                           :app_id
+                                                           :app_version_id
+                                                           :is_public])))
           update-sql    (-> (update :quick_launches)
                             (sset update-map)
                             (where [:= :id      (uuidify id)]
