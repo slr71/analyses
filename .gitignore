@@ -12,4 +12,6 @@ pom.xml.asc
 .eastwood
 .hgignore
 .hg/
+.idea
+*.iml
 analyses.properties

@@ -2,13 +2,11 @@
   (:require [honeysql.core :as sql]
             [honeysql.helpers :refer :all :as helpers]
             [clojure.tools.logging :as log]
-            [analyses.config :as config]
             [analyses.persistence.common :refer [query exec]]
             [analyses.uuids :refer [uuidify uuid uuidify-entry]]
             [cheshire.core :refer [parse-string generate-string]]
             [clojure-commons.exception-util :as cxu]
-            [clojure-commons.core :refer [when-let*]])
-  (:import [java.util UUID]))
+            [clojure-commons.core :refer [when-let*]]))
 
 (defn add-submission
   "Adds a new submission to the database."
@@ -63,6 +61,7 @@
         obj (first (query (-> (select :quick_launches.id
                                       [:users.username :creator]
                                       :quick_launches.app_id
+                                      :quick_launches.app_version_id
                                       :quick_launches.name
                                       :quick_launches.description
                                       :quick_launches.is_public
@@ -85,6 +84,7 @@
         get-all-sql (-> (select :quick_launches.id
                                 [:users.username :creator]
                                 :quick_launches.app_id
+                                :quick_launches.app_version_id
                                 :quick_launches.name
                                 :quick_launches.description
                                 :quick_launches.is_public
@@ -109,6 +109,7 @@
         get-sql (-> (select :quick_launches.id
                             [:users.username :creator]
                             :quick_launches.app_id
+                            :quick_launches.app_version_id
                             :quick_launches.name
                             :quick_launches.description
                             :quick_launches.is_public
@@ -129,16 +130,22 @@
 
 
 (defn add-quicklaunch
-  [user quicklaunch]
+  [user {:keys [name
+                description
+                app_id
+                app_version_id
+                is_public
+                submission]}]
   (let [new-uuid   (uuid)
         insert-sql (-> (insert-into :quick_launches)
-                       (values [{:id            new-uuid
-                                 :name          (:name quicklaunch)
-                                 :description   (:description quicklaunch)
-                                 :app_id        (uuidify (:app_id quicklaunch))
-                                 :is_public     (:is_public quicklaunch)
-                                 :submission_id (add-submission (:submission quicklaunch))
-                                 :creator       (get-user user)}]))]
+                       (values [{:id             new-uuid
+                                 :name           name
+                                 :description    description
+                                 :app_id         (uuidify app_id)
+                                 :app_version_id (uuidify app_version_id)
+                                 :is_public      is_public
+                                 :submission_id  (add-submission submission)
+                                 :creator        (get-user user)}]))]
     (exec insert-sql)
     (get-quicklaunch new-uuid user)))
 
