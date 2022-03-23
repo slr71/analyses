@@ -36,4 +36,5 @@
   :ring {:handler analyses.routes/app
          :init analyses.core/init
          :port 31327}
-  :repl-options {:init-ns analyses.core})
+  :repl-options {:init-ns analyses.core}
+  :jvm-opts ["-Dlogback.configurationFile=/etc/iplant/de/logging/analyses-logging.xml" "-javaagent:./opentelemetry-javaagent.jar" "-Dotel.resource.attributes=service.name=analyses"])

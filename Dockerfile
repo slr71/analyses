@@ -13,12 +13,14 @@ RUN lein deps
 
 RUN ln -s "/opt/openjdk-17/bin/java" "/bin/analyses"
 
+ENV OTEL_TRACES_EXPORTER none
+
 COPY . /usr/src/app
 
 RUN lein uberjar && \
     cp target/analyses-0.1.0-SNAPSHOT-standalone.jar .
 
-ENTRYPOINT ["analyses", "-Dlogback.configurationFile=/usr/src/app/logback.xml", "-cp", ".:analyses-0.1.0-SNAPSHOT-standalone.jar:/", "analyses.core"]
+ENTRYPOINT ["analyses", "-Dlogback.configurationFile=/usr/src/app/logback.xml", "-javaagent:/usr/src/app/opentelemetry-javaagent.jar", "-Dotel.resource.attributes=service.name=analyses", "-cp", ".:analyses-0.1.0-SNAPSHOT-standalone.jar:/", "analyses.core"]
 
 ARG git_commit=unknown
 ARG version=unknown
