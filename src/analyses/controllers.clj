@@ -6,16 +6,19 @@
 
 (defn add-quicklaunch
   [user quicklaunch]
-  (clients/validate-submission
-   {:quicklaunch quicklaunch
-    :app         (clients/get-app user system-id (:app_id quicklaunch))
-    :system-id   system-id
-    :user        user})
-  (persist/add-quicklaunch user quicklaunch))
+  (let [{:keys [version_id] :as app} (clients/get-app user system-id (:app_id quicklaunch))
+        quicklaunch                  (assoc quicklaunch :app_version_id version_id)]
+    (clients/validate-submission
+      {:quicklaunch quicklaunch
+       :app         app
+       :system-id   system-id
+       :user        user})
+    (persist/add-quicklaunch user quicklaunch)))
 
 (defn update-quicklaunch
   [id user quicklaunch]
   (let [ql-merged  (merge (persist/get-quicklaunch id user) quicklaunch)
+        ;FIXME     Lookup by app version ID
         app        (clients/get-app user system-id (:app_id ql-merged))
         submission (if (contains? quicklaunch :submission)
                      (persist/merge-submission id user (:submission quicklaunch))
@@ -31,5 +34,6 @@
   [id user]
   (let [quicklaunch (persist/get-quicklaunch id user)
         submission  (:submission quicklaunch)
+        ;FIXME      Lookup by app version ID
         app         (clients/get-app user system-id (:app_id quicklaunch))]
     (clients/quick-launch-app-info submission app system-id)))

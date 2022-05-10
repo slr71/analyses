@@ -5,7 +5,6 @@
         [analyses.schema])
   (:require [compojure.api.sweet :refer :all]
             [common-swagger-api.schema.apps :refer [AppIdParam AppJobView]]
-            [common-swagger-api.schema.analyses :refer [AnalysisSubmission]]
             [cheshire.core :as cheshire]
             [clojure-commons.exception :refer [exception-handlers]]
             [clojure-commons.lcase-params :refer [wrap-lcase-params]]
@@ -16,8 +15,7 @@
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [service-logging.middleware :refer [log-validation-errors add-user-to-context]]
             [analyses.persistence :as persist]
-            [analyses.controllers :as ctlr])
-  (:import [java.util UUID]))
+            [analyses.controllers :as ctlr]))
 
 (defn unrecognized-path-response
   "Builds the response to send for an unrecognized service path."
