@@ -5,9 +5,11 @@
 (def system-id "de")
 
 (defn add-quicklaunch
-  [user quicklaunch]
-  (let [{:keys [version_id] :as app} (clients/get-app user system-id (:app_id quicklaunch))
-        quicklaunch                  (assoc quicklaunch :app_version_id version_id)]
+  [user {:keys [app_id app_version_id] :as quicklaunch}]
+  (let [{:keys [version_id] :as app} (if app_version_id
+                                       (clients/get-app-version user system-id app_id app_version_id)
+                                       (clients/get-app user system-id app_id))
+        quicklaunch                  (merge {:app_version_id version_id} quicklaunch)]
     (clients/validate-submission
       {:quicklaunch quicklaunch
        :app         app
@@ -18,8 +20,10 @@
 (defn update-quicklaunch
   [id user quicklaunch]
   (let [ql-merged  (merge (persist/get-quicklaunch id user) quicklaunch)
-        ;FIXME     Lookup by app version ID
-        app        (clients/get-app user system-id (:app_id ql-merged))
+        app        (clients/get-app-version user
+                                            system-id
+                                            (:app_id ql-merged)
+                                            (:app_version_id ql-merged))
         submission (if (contains? quicklaunch :submission)
                      (persist/merge-submission id user (:submission quicklaunch))
                      (:submission (persist/get-submission (:submission_id (persist/get-unjoined-quicklaunch id user)))))]
@@ -32,8 +36,8 @@
 
 (defn quick-launch-app-info
   [id user]
-  (let [quicklaunch (persist/get-quicklaunch id user)
-        submission  (:submission quicklaunch)
-        ;FIXME      Lookup by app version ID
-        app         (clients/get-app user system-id (:app_id quicklaunch))]
+  (let [{:keys [app_id
+                app_version_id
+                submission]} (persist/get-quicklaunch id user)
+        app                  (clients/get-app-version user system-id app_id app_version_id)]
     (clients/quick-launch-app-info submission app system-id)))

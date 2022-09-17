@@ -50,9 +50,13 @@
 
 (defn get-app
   [user system-id app-id]
-  (let [u (apps-url ["apps" system-id app-id] user {})]
-    (println u)
-    (:body (http/get (apps-url ["apps" system-id app-id] user {}) {:as :json}))))
+  (:body (http/get (apps-url ["apps" system-id app-id] user {})
+                   {:as :json})))
+
+(defn get-app-version
+  [user system-id app-id version-id]
+  (:body (http/get (apps-url ["apps" system-id app-id "versions" version-id] user {})
+                   {:as :json})))
 
 (def ^:private input-multiplicities
   {"FileInput"         "single"
