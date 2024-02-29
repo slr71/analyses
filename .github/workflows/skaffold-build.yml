@@ -7,7 +7,7 @@ on:
 
 jobs:
   call-workflow-passing-data:
-    uses: cyverse-de/github-workflows/skaffold-build.yaml@v0.0.1
+    uses: cyverse-de/github-workflows/.github/workflows/skaffold-build.yaml@v0.0.2
     with:
       build-prerelease: ${{ contains(github.ref_name, "-rc")
     secrets:
