@@ -1,6 +1,7 @@
 name: skaffold-build
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
@@ -8,10 +9,12 @@ on:
 
 jobs:
   call-workflow-passing-data:
-    uses: cyverse-de/github-workflows/.github/workflows/skaffold-build.yml@v0.0.7
+    uses: cyverse-de/github-workflows/.github/workflows/skaffold-build.yml@v0.1.5
     with:
       build-prerelease: ${{ contains(github.ref_name, '-rc') }}
     secrets:
       harbor-username: ${{ secrets.HARBOR_USERNAME }}
       harbor-password: ${{ secrets.HARBOR_PASSWORD }}
       releases-repo-push-token: ${{ secrets.GH_DE_RELEASES_PUSH_TOKEN }}
+      cicd-webhook-url: ${{ secrets.CICD_WEBHOOK_URL }}
+      cicd-webhook-secret: ${{ secrets.CICD_WEBHOOK_SECRET }}
