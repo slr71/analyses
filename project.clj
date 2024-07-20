@@ -1,36 +1,38 @@
-(defproject analyses "0.1.0-SNAPSHOT"
+(defproject analyses "3.0.6-SNAPSHOT"
   :description "Backend service providing API access to DE analyses."
   :url "https://github.com/cyverse-de/analyses"
   :license {:name "BSD 3-Clause"
-            :url "https://github.com/cyverse-de/analyses/blob/master/LICENSE"}
-  :dependencies [[org.clojure/clojure "1.10.1"]
-                 [clj-http "3.10.0"]
-                 [lambdaisland/uri "1.2.1"]
-                 [medley "1.3.0"]
-                 [compojure "1.6.1"]
-                 [honeysql "0.9.10"]
-                 [org.postgresql/postgresql "42.2.12"]
-                 [org.clojure/java.jdbc "0.7.11"]
-                 [org.cyverse/clojure-commons "3.0.5"]
-                 [org.cyverse/common-cli "2.8.1"]
-                 [org.cyverse/common-cfg "2.8.1"]
-                 [org.cyverse/common-swagger-api "3.4.0"]
-                 [org.flatland/ordered "1.5.7"]
-                 [org.cyverse/service-logging "2.8.2"]
+            :url  "https://github.com/cyverse-de/analyses/blob/master/LICENSE"}
+  :dependencies [[org.clojure/clojure "1.11.3"]
+                 [clj-http "3.13.0"]
+                 [lambdaisland/uri "1.19.155"]
+                 [medley "1.4.0"]
+                 [compojure "1.7.1"]
+                 [com.github.seancorfield/honeysql "2.6.1147"]
+                 [org.postgresql/postgresql "42.7.3"]
+                 [org.clojure/java.jdbc "0.7.12"]
+                 [org.cyverse/clojure-commons "3.0.8"]
+                 [org.cyverse/common-cli "2.8.2"]
+                 [org.cyverse/common-cfg "2.8.3"]
+                 [org.cyverse/common-swagger-api "3.4.5-SNAPSHOT"]
+                 [org.flatland/ordered "1.15.12"]
+                 [org.cyverse/service-logging "2.8.4"]
                  [me.raynes/fs "1.4.6"]
-                 [ring "1.7.1"]
-                 [cheshire "5.10.0"]
+                 [ring "1.12.2"]
+                 [cheshire "5.13.0"]
                  [slingshot "0.12.2"]
                  [proto-repl "0.3.1"]]
   :eastwood {:exclude-namespaces [apps.protocols :test-paths]
-             :linters [:wrong-arity :wrong-ns-form :wrong-pre-post :wrong-tag :misplaced-docstrings]}
-  :plugins [[lein-swank "1.4.4"]
-            [test2junit "1.1.3"]
-            [jonase/eastwood "0.3.11"]]
-  :profiles {:dev {:dependencies   [[ring "1.7.1"]]
-                   :plugins        [[lein-ring "0.12.5"]]
-                   :resource-paths ["conf/test"]}
-             :repl {:source-paths ["repl"]}
+             :linters            [:wrong-arity :wrong-ns-form :wrong-pre-post :wrong-tag :misplaced-docstrings]}
+  :plugins [[lein-ancient "0.7.0"]
+            [test2junit "1.4.4"]
+            [jonase/eastwood "1.4.3"]]
+  :profiles {:dev {:dependencies   [[ring "1.12.2"]]
+                   :plugins        [[lein-ring "0.12.6"]]
+                   :resource-paths ["conf/test"]
+                   :jvm-opts       ["-Dotel.javaagent.enabled=false"]}
+             :repl {:source-paths ["repl"]
+                    :jvm-opts     ["-Dotel.javaagent.enabled=false"]}
              :uberjar {:aot :all}}
   :main ^:skip-aot analyses.core
   :ring {:handler analyses.routes/app
