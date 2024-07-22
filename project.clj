@@ -29,16 +29,13 @@
             [jonase/eastwood "1.4.3"]]
   :profiles {:dev     {:dependencies   [[ring "1.12.2"]]
                        :plugins        [[lein-ring "0.12.6"]]
-                       :resource-paths ["conf/test"]
-                       :jvm-opts       ["-Dotel.javaagent.enabled=false"]}
-             :repl    {:source-paths ["repl"]
-                       :jvm-opts     ["-Dotel.javaagent.enabled=false"]}
+                       :resource-paths ["conf/test"]}
+             :repl    {:source-paths ["repl"]}
              :uberjar {:aot          :all
-                       :jvm-opts     ["-Dotel.javaagent.enabled=false"]
                        :uberjar-name "analyses-standalone.jar"}}
   :main ^:skip-aot analyses.core
   :ring {:handler analyses.routes/app
          :init    analyses.core/init
          :port    31327}
   :repl-options {:init-ns analyses.core}
-  :jvm-opts ["-Dlogback.configurationFile=/etc/iplant/de/logging/analyses-logging.xml" "-javaagent:./opentelemetry-javaagent.jar" "-Dotel.resource.attributes=service.name=analyses"])
+  :jvm-opts ["-Dlogback.configurationFile=/etc/iplant/de/logging/analyses-logging.xml"])
