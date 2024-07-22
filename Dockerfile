@@ -1,4 +1,4 @@
-FROM clojure:openjdk-17-lein-alpine
+FROM clojure:temurin-21-lein-alpine
 
 WORKDIR /usr/src/app
 
@@ -18,9 +18,9 @@ ENV OTEL_TRACES_EXPORTER none
 COPY . /usr/src/app
 
 RUN lein uberjar && \
-    cp target/analyses-0.1.0-SNAPSHOT-standalone.jar .
+    cp target/analyses-standalone.jar .
 
-ENTRYPOINT ["analyses", "-Dlogback.configurationFile=/usr/src/app/logback.xml", "-javaagent:/usr/src/app/opentelemetry-javaagent.jar", "-Dotel.resource.attributes=service.name=analyses", "-cp", ".:analyses-0.1.0-SNAPSHOT-standalone.jar:/", "analyses.core"]
+ENTRYPOINT ["analyses", "-Dlogback.configurationFile=/usr/src/app/logback.xml", "-javaagent:/usr/src/app/opentelemetry-javaagent.jar", "-Dotel.resource.attributes=service.name=analyses", "-cp", ".:analyses-standalone.jar:/", "analyses.core"]
 
 ARG git_commit=unknown
 ARG version=unknown
