@@ -11,7 +11,7 @@ COPY conf/main/logback.xml /usr/src/app/
 COPY project.clj /usr/src/app/
 RUN lein deps
 
-RUN ln -s "/opt/openjdk-17/bin/java" "/bin/analyses"
+RUN ln -s "/opt/java/openjdk/bin/java" "/bin/analyses"
 
 ENV OTEL_TRACES_EXPORTER none
 
