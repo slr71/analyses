@@ -20,7 +20,7 @@ COPY . /usr/src/app
 RUN lein uberjar && \
     cp target/analyses-standalone.jar .
 
-ENTRYPOINT ["analyses", "-Dlogback.configurationFile=/usr/src/app/logback.xml", "-javaagent:/usr/src/app/opentelemetry-javaagent.jar", "-Dotel.resource.attributes=service.name=analyses", "-cp", ".:analyses-standalone.jar:/", "analyses.core"]
+ENTRYPOINT ["analyses", "-Dlogback.configurationFile=/usr/src/app/logback.xml", "-cp", ".:analyses-standalone.jar:/", "analyses.core"]
 
 ARG git_commit=unknown
 ARG version=unknown
