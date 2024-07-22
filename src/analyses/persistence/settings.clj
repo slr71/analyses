@@ -2,8 +2,8 @@
   (:use [analyses.persistence.common :only [de log-statement query]])
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.tools.logging :as log]
-            [honeysql.core :as sql]
-            [honeysql.helpers :as h]))
+            [honey.sql :as sql]
+            [honey.sql.helpers :as h]))
 
 (defn list-concurrent-job-limits
   "Lists all defined concurrent job limits."
@@ -38,7 +38,7 @@
   "Updates the concurrent job limit for a user."
   [tx username limit]
   (as-> (h/update :job_limits) q
-    (h/sset q {:concurrent_jobs limit})
+    (h/set q {:concurrent_jobs limit})
     (h/where q [:= :launcher (sql/call :regexp_replace username "-" "_")])
     (sql/format q)
     (log/spy :debug q)
