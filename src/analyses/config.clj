@@ -76,11 +76,6 @@
   [props config-valid configs]
   "analyses.apps.base-uri" "http://apps")
 
-(cc/defprop-str username-suffix
-  "The suffix appended to fully qualified usernames."
-  [props config-valid configs]
-  "analyses.username.suffix")
-
 (defn- validate-config
   "Validates the configuration settings after they've been loaded."
   []
