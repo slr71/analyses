@@ -14,7 +14,7 @@
                  [org.cyverse/clojure-commons "3.0.8"]
                  [org.cyverse/common-cli "2.8.2"]
                  [org.cyverse/common-cfg "2.8.3"]
-                 [org.cyverse/common-swagger-api "3.4.5"]
+                 [org.cyverse/common-swagger-api "3.4.6"]
                  [org.flatland/ordered "1.15.12"]
                  [org.cyverse/service-logging "2.8.4"]
                  [me.raynes/fs "1.4.6"]
