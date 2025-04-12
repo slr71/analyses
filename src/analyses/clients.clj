@@ -1,23 +1,25 @@
 (ns analyses.clients
-  (:require [analyses.config :refer [data-info-base-uri apps-base-uri]]
-            [medley.core :as medley]
-            [clj-http.client :as http]
-            [cemerick.url :refer [url]]
-            [clojure-commons.error-codes :refer :all]
-            [slingshot.slingshot :refer [try+ throw+]]))
+  (:require
+   [analyses.config :refer [data-info-base-uri apps-base-uri]]
+   [medley.core :as medley]
+   [cemerick.url :refer [url]]
+   [clj-http.client :as http]
+   [clojure-commons.error-codes :as ce]
+   [clojure.string :as string]
+   [slingshot.slingshot :refer [try+ throw+]]))
 
 (def public-user "public")
 
 (defn apps-url
   [components username query]
   (-> (apply url (apps-base-uri) components)
-      (assoc :query (assoc query :user (clojure.string/replace username #"@.*$" "")))
+      (assoc :query (assoc query :user (string/replace username #"@.*$" "")))
       (str)))
 
 (defn data-info-url
   [components username query]
   (-> (apply url (data-info-base-uri) components)
-      (assoc :query (assoc query :user (clojure.string/replace username #"@.*$" "")))
+      (assoc :query (assoc query :user (string/replace username #"@.*$" "")))
       (str)))
 
 (defn get-path-info
@@ -44,7 +46,7 @@
         (get-path-info user paths-map)
         true)) ;; no paths to validate, so everything is fine
     (catch [:status 500] e
-      (if (#{ERR_NOT_READABLE ERR_DOES_NOT_EXIST} (:error_code e))
+      (if (#{ce/ERR_NOT_READABLE ce/ERR_DOES_NOT_EXIST} (:error_code e))
         false
         (throw+))))))
 
@@ -96,7 +98,7 @@
   (map (partial update-app-group config) groups))
 
 (defn quick-launch-app-info
-  [submission app system-id]
+  [submission app _system-id]
   (update-in (assoc app :debug (:debug submission false))
              [:groups]
              (partial update-app-groups (:config submission))))
@@ -104,14 +106,14 @@
 (defn- validate-prop-value
   [{{:keys [is_public] {:keys [config]} :submission} :quicklaunch
     :keys [user]
-    :as ql-info}
+    :as _ql-info}
 
    {:keys [id] :as prop}]
   (let [value (config (keyword id))
         u     (if is_public public-user user)]
-    (if (input? prop)
-      (if-not (paths-accessible-by value u)
-        (throw+ {:error_code ERR_NOT_READABLE :user u :path value})))))
+    (when (input? prop)
+      (when-not (paths-accessible-by value u)
+        (throw+ {:error_code ce/ERR_NOT_READABLE :user u :path value})))))
 
 (defn validate-submission
   "The map passed in is in the format {:quicklaunch {}

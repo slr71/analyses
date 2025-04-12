@@ -15,5 +15,5 @@ pom.xml.asc
 .idea
 *.iml
 analyses.properties
-.clj-kondo/
+.clj-kondo/.cache
 .lsp/

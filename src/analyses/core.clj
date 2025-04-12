@@ -1,13 +1,14 @@
 (ns analyses.core
   (:gen-class)
-  (:require [clojure.tools.logging :as log]
-            [common-cli.core :as ccli]
-            [clj-http.client :as http]
-            [me.raynes.fs :as fs]
-            [analyses.routes :as routes]
-            [analyses.config :as config]
-            [analyses.persistence.common :as common-persist]
-            [service-logging.thread-context :as tc]))
+  (:require
+   [analyses.routes :as routes]
+   [analyses.config :as config]
+   [analyses.persistence.common :as common-persist]
+   [clj-http.client :as http]
+   [clojure.tools.logging :as log]
+   [common-cli.core :as ccli]
+   [me.raynes.fs :as fs]
+   [service-logging.thread-context :as tc]))
 
 (defn cli-options
   []
@@ -29,9 +30,9 @@
 (defn -main
   [& args]
   (tc/with-logging-context config/svc-info
-    (let [{:keys [options arguments errors summary]} (ccli/handle-args config/svc-info args cli-options)]
+    (let [{:keys [options _arguments _errors _summary]} (ccli/handle-args config/svc-info args cli-options)]
       (when-not (fs/exists? (:config options))
-        (ccli/exit 1 (str "The config file does not exist.")))
+        (ccli/exit 1 "The config file does not exist."))
       (when-not (fs/readable? (:config options))
         (ccli/exit 1 "The config file is not readable."))
       (init options)

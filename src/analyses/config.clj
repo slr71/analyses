@@ -1,7 +1,8 @@
 (ns analyses.config
-  (:require [clojure-commons.config :as cc]
-            [me.raynes.fs :as fs]
-            [slingshot.slingshot :refer [throw+]]))
+  (:require
+   [clojure-commons.config :as cc]
+   [me.raynes.fs :as fs]
+   [slingshot.slingshot :refer [throw+]]))
 
 (def docs-uri "/docs")
 

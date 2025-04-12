@@ -1,9 +1,10 @@
 (ns analyses.persistence.settings
-  (:use [analyses.persistence.common :only [de log-statement query]])
-  (:require [clojure.java.jdbc :as jdbc]
-            [clojure.tools.logging :as log]
-            [honey.sql :as sql]
-            [honey.sql.helpers :as h]))
+  (:require
+   [analyses.persistence.common :refer [de log-statement query]]
+   [clojure.java.jdbc :as jdbc]
+   [clojure.tools.logging :as log]
+   [honey.sql :as sql]
+   [honey.sql.helpers :as h]))
 
 (defn list-concurrent-job-limits
   "Lists all defined concurrent job limits."

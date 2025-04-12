@@ -1,6 +1,7 @@
 (ns analyses.controllers
-  (:require [analyses.persistence :as persist]
-            [analyses.clients :as clients]))
+  (:require
+   [analyses.persistence :as persist]
+   [analyses.clients :as clients]))
 
 (def system-id "de")
 
@@ -11,10 +12,10 @@
                                        (clients/get-app user system-id app_id))
         quicklaunch                  (merge {:app_version_id version_id} quicklaunch)]
     (clients/validate-submission
-      {:quicklaunch quicklaunch
-       :app         app
-       :system-id   system-id
-       :user        user})
+     {:quicklaunch quicklaunch
+      :app         app
+      :system-id   system-id
+      :user        user})
     (persist/add-quicklaunch user quicklaunch)))
 
 (defn update-quicklaunch

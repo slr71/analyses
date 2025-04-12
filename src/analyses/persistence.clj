@@ -1,12 +1,13 @@
 (ns analyses.persistence
-  (:require [honey.sql :as sql]
-            [honey.sql.helpers :as helpers]
-            [clojure.tools.logging :as log]
-            [analyses.persistence.common :refer [query exec]]
-            [analyses.uuids :refer [uuidify uuid uuidify-entry]]
-            [cheshire.core :refer [parse-string generate-string]]
-            [clojure-commons.exception-util :as cxu]
-            [clojure-commons.core :refer [when-let*]]))
+  (:require
+   [analyses.persistence.common :refer [query exec]]
+   [analyses.uuids :refer [uuidify uuid uuidify-entry]]
+   [cheshire.core :refer [parse-string generate-string]]
+   [clojure.tools.logging :as log]
+   [clojure-commons.exception-util :as cxu]
+   [clojure-commons.core :refer [when-let*]]
+   [honey.sql :as sql]
+   [honey.sql.helpers :as helpers]))
 
 (defn add-submission
   "Adds a new submission to the database."
@@ -128,7 +129,6 @@
                                 (parse-string keyword)))
      results)))
 
-
 (defn add-quicklaunch
   [user {:keys [name
                 description
@@ -160,8 +160,7 @@
   [ql-id user new-submission]
   (when-let* [submission-id  (:submission_id (get-unjoined-quicklaunch ql-id user))
               old-submission (:submission (get-submission submission-id))]
-    (merge old-submission new-submission)))
-
+             (merge old-submission new-submission)))
 
 (defn- fix-uuids
   [update-map]
@@ -197,7 +196,7 @@
           update-sql    (-> (helpers/update :quick_launches)
                             (helpers/set update-map)
                             (helpers/where [:= :id      (uuidify id)]
-                                   [:= :creator (get-user user)]))]
+                                           [:= :creator (get-user user)]))]
 
       (exec update-sql)
       (get-quicklaunch id user))))
@@ -359,8 +358,7 @@
 
 (defn add-quicklaunch-global-default
   [user global-default]
-  (let [user-id  (get-user user)
-        new-uuid (uuid)
+  (let [new-uuid (uuid)
         add-sql  (-> (helpers/insert-into :quick_launch_global_defaults)
                      (helpers/values [{:id              new-uuid
                                        :app_id          (uuidify (:app_id global-default))

@@ -1,21 +1,36 @@
 (ns analyses.routes
-  (:use [common-swagger-api.schema.quicklaunches]
-        [common-swagger-api.schema :only [StandardUserQueryParams]]
-        [analyses.routes.settings :only [analysis-settings-routes]]
-        [analyses.schema])
-  (:require [compojure.api.sweet :refer :all]
-            [common-swagger-api.schema.apps :refer [AppIdParam AppJobView]]
-            [cheshire.core :as cheshire]
-            [clojure-commons.exception :refer [exception-handlers]]
-            [clojure-commons.lcase-params :refer [wrap-lcase-params]]
-            [clojure-commons.query-params :refer [wrap-query-params]]
-            [compojure.api.middleware :refer [wrap-exceptions]]
-            [compojure.route :as route]
-            [ring.util.http-response :refer [ok]]
-            [ring.middleware.keyword-params :refer [wrap-keyword-params]]
-            [service-logging.middleware :refer [log-validation-errors add-user-to-context]]
-            [analyses.persistence :as persist]
-            [analyses.controllers :as ctlr]))
+  (:require
+   [analyses.persistence :as persist]
+   [analyses.controllers :as ctlr]
+   [analyses.routes.settings :refer [analysis-settings-routes]]
+   [analyses.schema :refer [DeletionResponse QuickLaunchID coerce!]]
+   [cheshire.core :as cheshire]
+   [clojure-commons.exception :refer [exception-handlers]]
+   [clojure-commons.lcase-params :refer [wrap-lcase-params]]
+   [clojure-commons.query-params :refer [wrap-query-params]]
+   [common-swagger-api.schema :refer [StandardUserQueryParams]]
+   [common-swagger-api.schema.apps :refer [AppIdParam AppJobView]]
+   [common-swagger-api.schema.quicklaunches
+    :refer [NewQuickLaunch
+            NewQuickLaunchFavorite
+            NewQuickLaunchGlobalDefault
+            NewQuickLaunchUserDefault
+            QuickLaunch
+            QuickLaunchFavorite
+            QuickLaunchGlobalDefault
+            QuickLaunchUserDefault
+            UpdateQuickLaunch
+            UpdateQuickLaunchGlobalDefault
+            UpdateQuickLaunchUserDefault]]
+   [compojure.api.sweet :refer [DELETE GET PATCH POST context defapi swagger-routes undocumented]]
+   [compojure.api.middleware :refer [wrap-exceptions]]
+   [compojure.route :as route]
+   [ring.util.http-response :refer [ok]]
+   [ring.middleware.keyword-params :refer [wrap-keyword-params]]
+   [service-logging.middleware :refer [log-validation-errors add-user-to-context]]))
+
+;; Declarations for route bindings.
+(declare app ql user id uql nqlf ud new)
 
 (defn unrecognized-path-response
   "Builds the response to send for an unrecognized service path."
@@ -42,7 +57,7 @@
                  [wrap-exceptions exception-handlers]
                  log-validation-errors]})
 
-  (GET "/" [] (ok (str "yo what up\n")))
+  (GET "/" [] (ok "yo what up\n"))
 
   (context "/quicklaunches" []
     :tags ["quicklaunches"]

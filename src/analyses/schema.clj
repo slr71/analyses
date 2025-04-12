@@ -1,19 +1,13 @@
 (ns analyses.schema
-  (:require [compojure.api.sweet :refer :all]
-            [schema.core :as s]
-            [schema.coerce :as sc]
-            [schema.utils :as su]
-            [ring.swagger.coerce :as rc]
-            [ring.swagger.common :refer [value-of]]
-            [slingshot.slingshot :refer [throw+]])
+  (:require
+   [compojure.api.sweet :refer [describe]]
+   [ring.swagger.coerce :as rc]
+   [ring.swagger.common :refer [value-of]]
+   [schema.core :as s]
+   [schema.coerce :as sc]
+   [schema.utils :as su]
+   [slingshot.slingshot :refer [throw+]])
   (:import [java.util UUID]))
-
-(defn coerce-string->long
-  "When the given map contains the given key, converts its string value to a long."
-  [m k]
-  (if (contains? m k)
-    (update m k rc/string->long)
-    m))
 
 (defn- stringify-uuids
   [v]

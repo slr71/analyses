@@ -1,10 +1,13 @@
 (ns analyses.routes.settings
-  (:use [common-swagger-api.schema]
-        [medley.core :only [remove-vals]]
-        [ring.util.http-response :only [ok]])
-  (:require [analyses.persistence.settings :as persist]
-            [clojure.tools.logging :as log]
-            [common-swagger-api.schema.analyses :as analyses-schema]))
+  (:require
+   [analyses.persistence.settings :as persist]
+   [common-swagger-api.schema :refer [context defroutes DELETE GET PUT]]
+   [common-swagger-api.schema.analyses :as analyses-schema]
+   [medley.core :refer [remove-vals]]
+   [ring.util.http-response :refer [ok]]))
+
+;; Declarations for route names and parameter bindings.
+(declare analysis-settings-routes username body)
 
 (defroutes analysis-settings-routes
   (context "/concurrent-job-limits" []

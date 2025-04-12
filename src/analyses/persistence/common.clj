@@ -1,8 +1,9 @@
 (ns analyses.persistence.common
-  (:require [analyses.config :as config]
-            [clojure.java.jdbc :as jdbc]
-            [clojure.tools.logging :as log]
-            [honey.sql :as sql]))
+  (:require
+   [analyses.config :as config]
+   [clojure.java.jdbc :as jdbc]
+   [clojure.tools.logging :as log]
+   [honey.sql :as sql]))
 
 (defn- create-db-spec
   "Creates the database connection spec to use when accessing the database."
