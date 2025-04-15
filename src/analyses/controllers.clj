@@ -5,6 +5,9 @@
 
 (def system-id "de")
 
+(defn service-info []
+  "yo, what up?\n")
+
 (defn add-quicklaunch
   [user {:keys [app_id app_version_id] :as quicklaunch}]
   (let [{:keys [version_id] :as app} (if app_version_id

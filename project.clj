@@ -18,6 +18,7 @@
                  [org.flatland/ordered "1.15.12"]
                  [org.cyverse/service-logging "2.8.4"]
                  [me.raynes/fs "1.4.6"]
+                 [metosin/reitit "0.8.0"]
                  [ring "1.14.1"]
                  [cheshire "5.13.0"]
                  [slingshot "0.12.2"]]
