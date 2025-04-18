@@ -26,7 +26,15 @@
    [compojure.api.sweet :refer [DELETE GET PATCH POST context defapi swagger-routes undocumented]]
    [compojure.api.middleware :refer [wrap-exceptions]]
    [compojure.route :as route]
+   [muuntaja.core :as m]
+   [reitit.coercion.spec]
    [reitit.ring :as ring]
+   [reitit.ring.coercion :as coercion]
+   [reitit.ring.middleware.exception :as exception]
+   [reitit.ring.middleware.muuntaja :as muuntaja]
+   [reitit.ring.middleware.parameters :as parameters]
+   [reitit.swagger :as swagger]
+   [reitit.swagger-ui :as swagger-ui]
    [ring.util.http-response :refer [ok]]
    [ring.middleware.keyword-params :refer [wrap-keyword-params]]
    [service-logging.middleware :refer [log-validation-errors add-user-to-context]]))
@@ -34,17 +42,34 @@
 ;; Declarations for route bindings.
 (declare app-prime ql user id uql nqlf ud new)
 
-(def routes
-  (ring/router ["/" {:get handlers/service-info}]))
-
 (def app
-  (-> (ring/ring-handler routes)
-      add-user-to-context
-      wrap-query-params
-      wrap-lcase-params
-      wrap-keyword-params
-      (wrap-exceptions exception-handlers)
-      log-validation-errors))
+  (ring/ring-handler
+   (ring/router
+    [["/swagger.json"
+      {:get {:no-doc  true
+             :swagger {:info     {:title "my-api"}
+                       :basePath "/"} ;; prefix for all paths
+             :handler (swagger/create-swagger-handler)}}]
+
+     ["/" {:get handlers/service-info}]]
+
+    {:data {:coercion   reitit.coercion.spec/coercion
+            :muuntaja   m/instance
+            :middleware [;; query-params & form-params
+                         parameters/parameters-middleware
+                           ;; content-negotiation
+                         muuntaja/format-negotiate-middleware
+                           ;; encoding response body
+                         muuntaja/format-response-middleware
+                           ;; exception handling
+                         exception/exception-middleware
+                           ;; decoding request body
+                         muuntaja/format-request-middleware
+                           ;; coercing response bodys
+                         coercion/coerce-response-middleware
+                           ;; coercing request parameters
+                         coercion/coerce-request-middleware]}})
+   (ring/routes (ring/create-default-handler))))
 
 (defn unrecognized-path-response
   "Builds the response to send for an unrecognized service path."

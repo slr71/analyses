@@ -21,7 +21,7 @@
   []
   (require 'ring.adapter.jetty)
   (log/warn "Started listening on" (config/listen-port))
-  ((eval 'ring.adapter.jetty/run-jetty) routes/app {:port (config/listen-port)}))
+  ((eval 'ring.adapter.jetty/run-jetty) routes/app {:port (config/listen-port) :join false}))
 
 (defn init [& [options]]
   (config/load-config-from-file (:config options))
