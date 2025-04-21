@@ -6,7 +6,9 @@
 (def system-id "de")
 
 (defn service-info []
-  "yo, what up?\n")
+  {:service     "analyses"
+   :description "API endpoints for managing analyses in the Discovery Environment."
+   :version     "3.0.1"})
 
 (defn add-quicklaunch
   [user {:keys [app_id app_version_id] :as quicklaunch}]

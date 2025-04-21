@@ -9,6 +9,7 @@
    [clojure-commons.exception :refer [exception-handlers]]
    [clojure-commons.lcase-params :refer [wrap-lcase-params]]
    [clojure-commons.query-params :refer [wrap-query-params]]
+   [common-swagger-api.malli :refer [StatusResponse]]
    [common-swagger-api.schema :refer [StandardUserQueryParams]]
    [common-swagger-api.schema.apps :refer [AppIdParam AppJobView]]
    [common-swagger-api.schema.quicklaunches
@@ -27,13 +28,13 @@
    [compojure.api.middleware :refer [wrap-exceptions]]
    [compojure.route :as route]
    [muuntaja.core :as m]
-   [reitit.coercion.spec]
+   [reitit.coercion.malli]
+   [reitit.openapi :as openapi]
    [reitit.ring :as ring]
-   [reitit.ring.coercion :as coercion]
+   [reitit.ring.coercion :as ring-coercion]
    [reitit.ring.middleware.exception :as exception]
    [reitit.ring.middleware.muuntaja :as muuntaja]
    [reitit.ring.middleware.parameters :as parameters]
-   [reitit.swagger :as swagger]
    [reitit.swagger-ui :as swagger-ui]
    [ring.util.http-response :refer [ok]]
    [ring.middleware.keyword-params :refer [wrap-keyword-params]]
@@ -42,40 +43,79 @@
 ;; Declarations for route bindings.
 (declare app-prime ql user id uql nqlf ud new)
 
+(def openapi-spec-endpoint
+  "The endpoint that serves the OpenAPI specification."
+  ["/openapi.json"
+   {:get {:no-doc  true
+          :openapi {:info {:title       "CyVerse Discovery Environment Analyses"
+                           :description "API Endpoints for Managing Analyses"
+                           :version     "3.0.1"}}
+          :handler (openapi/create-openapi-handler)}}])
+
+(def swagger-ui-handler
+  "The handler that serves the Swagger UI."
+  (swagger-ui/create-swagger-ui-handler
+   {:path   "/docs/"
+    :config {:validatorUrl     nil
+             :urls             [{:name "openapi" :url "/openapi.json"}]
+             :urls.primaryName "openapi"
+             :operationsSorter "alpha"}}))
+
+(def swagger-ui-endpoint
+  "The endpoint that serves the Swagger UI."
+  ["/docs/"
+   {:get {:no-doc true
+          :handler swagger-ui-handler}}])
+
+(def status-endpoint
+  "The endpoint that serves information about the status of the service."
+  ["/"
+   {:get {:summary   "Service Status Information"
+          :responses {200 {:description "Returns information about the status of the service."
+                           :content     {"application/json" {:schema StatusResponse
+                                                             :examples {:service "analyses"}}}}}
+          :handler   handlers/service-info}}])
+
+(defn api-endpoints
+  []
+  (->> [openapi-spec-endpoint
+        swagger-ui-endpoint
+        status-endpoint]
+       (remove nil?)))
+
 (def app
   (ring/ring-handler
    (ring/router
-    [["/swagger.json"
-      {:get {:no-doc  true
-             :swagger {:info     {:title "my-api"}
-                       :basePath "/"} ;; prefix for all paths
-             :handler (swagger/create-swagger-handler)}}]
+    (api-endpoints)
 
-     ["/" {:get handlers/service-info}]]
-
-    {:data {:coercion   reitit.coercion.spec/coercion
+    {:data {:coercion   reitit.coercion.malli/coercion
             :muuntaja   m/instance
-            :middleware [;; query-params & form-params
+            :middleware [openapi/openapi-feature
+                         ;; query-params & form-params
                          parameters/parameters-middleware
-                           ;; content-negotiation
+                            ;; content-negotiation
                          muuntaja/format-negotiate-middleware
-                           ;; encoding response body
+                            ;; encoding response body
                          muuntaja/format-response-middleware
-                           ;; exception handling
+                            ;; exception handling
                          exception/exception-middleware
-                           ;; decoding request body
+                            ;; decoding request body
                          muuntaja/format-request-middleware
-                           ;; coercing response bodys
-                         coercion/coerce-response-middleware
-                           ;; coercing request parameters
-                         coercion/coerce-request-middleware]}})
-   (ring/routes (ring/create-default-handler))))
+                            ;; coercing exceptions
+                         ring-coercion/coerce-exceptions-middleware
+                            ;; coercing response body
+                         ring-coercion/coerce-response-middleware
+                            ;; coercing request parameters
+                         ring-coercion/coerce-request-middleware]}})
+
+   (ring/routes
+    (ring/redirect-trailing-slash-handler)
+    (ring/create-default-handler))))
 
 (defn unrecognized-path-response
   "Builds the response to send for an unrecognized service path."
   []
   (cheshire/encode {:reason "unrecognized service path"}))
-
 
 (defapi app-prime
   (swagger-routes
