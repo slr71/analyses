@@ -8,6 +8,7 @@
    [clojure.tools.logging :as log]
    [common-cli.core :as ccli]
    [me.raynes.fs :as fs]
+   [ring.adapter.jetty :as jetty]
    [service-logging.thread-context :as tc]))
 
 (defn cli-options
@@ -19,9 +20,8 @@
 
 (defn run-jetty
   []
-  (require 'ring.adapter.jetty)
   (log/warn "Started listening on" (config/listen-port))
-  ((eval 'ring.adapter.jetty/run-jetty) routes/app {:port (config/listen-port) :join false}))
+  (jetty/run-jetty #'routes/app {:port (config/listen-port) :join false}))
 
 (defn init [& [options]]
   (config/load-config-from-file (:config options))
