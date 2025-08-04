@@ -15,5 +15,3 @@ jobs:
       harbor-username: ${{ secrets.HARBOR_USERNAME }}
       harbor-password: ${{ secrets.HARBOR_PASSWORD }}
       releases-repo-push-token: ${{ secrets.GH_DE_RELEASES_PUSH_TOKEN }}
-      cicd-webhook-url: ${{ secrets.CICD_WEBHOOK_URL }}
-      cicd-webhook-secret: ${{ secrets.CICD_WEBHOOK_SECRET }}
